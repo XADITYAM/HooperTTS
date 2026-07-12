@@ -86,9 +86,12 @@ def load_model(model_location: str | None) -> Any:
 
     return Qwen3TTSModel.from_pretrained(
         model_location,
-        device_map="cuda",
-        dtype=torch.bfloat16,
-    )
+        device_map="auto",
+ dtype = (
+    torch.bfloat16
+    if torch.cuda.is_bf16_supported()
+    else torch.float16
+)
 
 
 def run_inference(
