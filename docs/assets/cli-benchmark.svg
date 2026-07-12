@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="420" viewBox="0 0 980 420" role="img" aria-labelledby="title desc">
+  <title id="title">HooperTTS CLI benchmark screenshot</title>
+  <desc id="desc">Terminal-style screenshot showing hoopertts benchmark output.</desc>
+  <rect width="980" height="420" rx="12" fill="#111827"/>
+  <rect x="24" y="24" width="932" height="372" rx="8" fill="#0b1020" stroke="#334155"/>
+  <circle cx="52" cy="52" r="6" fill="#ef4444"/>
+  <circle cx="74" cy="52" r="6" fill="#f59e0b"/>
+  <circle cx="96" cy="52" r="6" fill="#22c55e"/>
+  <text x="44" y="92" fill="#e5e7eb" font-family="Consolas, monospace" font-size="20">PS&gt; hoopertts benchmark samples/benchmark.txt</text>
+  <text x="44" y="136" fill="#93c5fd" font-family="Consolas, monospace" font-size="20">HooperTTS Benchmark</text>
+  <text x="44" y="166" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Profile Used: default</text>
+  <text x="44" y="196" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Original word count: 32</text>
+  <text x="44" y="226" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Optimized word count: 37</text>
+  <text x="44" y="256" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Estimated Speaking Speed: 151 wpm</text>
+  <text x="44" y="286" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Estimated Speaking Time: 16.1s</text>
+  <text x="44" y="316" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Average Chunk Size: 6.4</text>
+  <text x="44" y="346" fill="#e5e7eb" font-family="Consolas, monospace" font-size="18">Pronunciation Replacements: HooperTTS -&gt; Hooper T T S</text>
+</svg>

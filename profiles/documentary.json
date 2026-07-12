@@ -1,0 +1,17 @@
+{
+  "pause_strength": 1.2,
+  "hook_style": "cinematic",
+  "reveal_style": "dramatic",
+  "ending_style": "slow",
+  "chunk_target": 7,
+  "energy_curve": {
+    "HOOK": 8,
+    "REVEAL": 8,
+    "QUESTION": 6,
+    "CTA": 5,
+    "EVIDENCE": 5,
+    "CONTRAST": 6,
+    "NORMAL": 4
+  },
+  "question_style": "reflective"
+}

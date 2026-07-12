@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hoopertts"
+version = "0.1.0"
+description = "Narration script optimizer for TTS workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "HooperTTS" }]
+dependencies = []
+
+[project.scripts]
+hoopertts = "core.cli:main"
+
+[tool.setuptools]
+packages = ["core", "qwen"]
+py-modules = ["benchmark", "evaluate"]
+include-package-data = true
+
+[tool.setuptools.data-files]
+"profiles" = [
+  "profiles/default.json",
+  "profiles/documentary.json",
+  "profiles/gaming_news.json",
+  "profiles/youtube_shorts.json",
+  "profiles/podcast.json"
+]
+"." = ["pronunciation.json"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+include = '\.py$'
+extend-exclude = '''
+/(
+  \.git
+  | \.venv
+  | build
+  | dist
+  | notebooks
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
