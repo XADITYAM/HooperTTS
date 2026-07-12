@@ -13,6 +13,9 @@ from .environment import diagnose, format_diagnostics
 from .prompt_builder import QwenPrompt, build_prompt
 
 
+DEFAULT_QWEN_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+
+
 @dataclass(frozen=True)
 class GenerationResult:
     """Result of an attempted Qwen generation."""
@@ -75,27 +78,90 @@ def generate(
         prompt=prompt,
     )
 
+
 def load_model(model_location: str | None) -> Any:
-    """Load a Qwen3-TTS model from a local model location."""
-    if model_location is None:
-        raise RuntimeError("Model location is not available.")
+    """Load a Qwen3-TTS model with the official qwen_tts wrapper."""
+    checkpoint = resolve_model_checkpoint(model_location)
 
     import torch  # type: ignore[import-not-found]
     from qwen_tts import Qwen3TTSModel  # type: ignore[import-not-found]
 
-    dtype = (
-        torch.bfloat16
-        if torch.cuda.is_bf16_supported()
-        else torch.float16
-    )
+    register_qwen_tts_model()
 
-    device_map = "auto" if torch.cuda.is_available() else "cpu"
+    device_map = "cuda:0" if torch.cuda.is_available() else "cpu"
+    dtype = torch.bfloat16 if device_map != "cpu" else torch.float32
+    load_kwargs: dict[str, Any] = {
+        "device_map": device_map,
+        "dtype": dtype,
+    }
+    if device_map != "cpu":
+        load_kwargs["attn_implementation"] = "flash_attention_2"
 
-    return Qwen3TTSModel.from_pretrained(
-        model_location,
-        device_map=device_map,
-        dtype=dtype,
+    try:
+        return Qwen3TTSModel.from_pretrained(checkpoint, **load_kwargs)
+    except Exception as exc:
+        if load_kwargs.get("attn_implementation") != "flash_attention_2":
+            raise
+        load_kwargs.pop("attn_implementation", None)
+        try:
+            return Qwen3TTSModel.from_pretrained(checkpoint, **load_kwargs)
+        except Exception:
+            raise exc
+
+
+def register_qwen_tts_model() -> None:
+    """Register Qwen3-TTS classes with Transformers when available."""
+    try:
+        from qwen_tts.core.models import (  # type: ignore[import-not-found]
+            Qwen3TTSConfig,
+            Qwen3TTSForConditionalGeneration,
+            Qwen3TTSProcessor,
+        )
+        from transformers import (  # type: ignore[import-not-found]
+            AutoConfig,
+            AutoModel,
+            AutoProcessor,
+        )
+    except ImportError:
+        return
+
+    register_calls = (
+        lambda: AutoConfig.register("qwen3_tts", Qwen3TTSConfig),
+        lambda: AutoModel.register(Qwen3TTSConfig, Qwen3TTSForConditionalGeneration),
+        lambda: AutoProcessor.register(Qwen3TTSConfig, Qwen3TTSProcessor),
     )
+    for register_call in register_calls:
+        try:
+            register_call()
+        except ValueError as exc:
+            if "already" not in str(exc).lower():
+                raise
+
+
+def resolve_model_checkpoint(model_location: str | None) -> str:
+    """Return an official model id or concrete local snapshot path."""
+    if not model_location:
+        return DEFAULT_QWEN_MODEL_ID
+
+    candidate = Path(model_location)
+    if not candidate.exists():
+        return model_location
+
+    if (candidate / "config.json").exists():
+        return str(candidate)
+
+    snapshots_dir = candidate / "snapshots"
+    if snapshots_dir.exists():
+        snapshots = [
+            path
+            for path in snapshots_dir.iterdir()
+            if path.is_dir() and (path / "config.json").exists()
+        ]
+        if snapshots:
+            latest_snapshot = max(snapshots, key=lambda path: path.stat().st_mtime)
+            return str(latest_snapshot)
+
+    return str(candidate)
 
 
 def run_inference(

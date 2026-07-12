@@ -38,6 +38,18 @@ def test_environment_diagnostics_format() -> None:
     assert not diagnostics.ready
 
 
+def test_runner_resolves_hugging_face_snapshot_path() -> None:
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        snapshot = root / "snapshots" / "abc123"
+        snapshot.mkdir(parents=True)
+        (snapshot / "config.json").write_text(
+            '{"model_type": "qwen3_tts"}', encoding="utf-8"
+        )
+
+        assert runner.resolve_model_checkpoint(str(root)) == str(snapshot)
+
+
 def test_runner_generate_with_mocked_qwen() -> None:
     original_diagnose = runner.diagnose
     original_load_model = runner.load_model
@@ -96,4 +108,5 @@ def test_runner_generate_with_mocked_qwen() -> None:
 if __name__ == "__main__":
     test_prompt_builder_uses_planner_output()
     test_environment_diagnostics_format()
+    test_runner_resolves_hugging_face_snapshot_path()
     test_runner_generate_with_mocked_qwen()
