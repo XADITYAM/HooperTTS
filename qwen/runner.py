@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,11 +64,11 @@ def generate(
             reference_audio=Path(reference_audio) if reference_audio else None,
         )
         save_wav(output, wavs[0], sample_rate)
-    except Exception as exc:
+    except Exception:
         return GenerationResult(
             success=False,
             output_path=None,
-            diagnostics=f"Qwen generation failed: {exc}",
+            diagnostics=f"Qwen generation failed:\n{traceback.format_exc()}",
             prompt=prompt,
         )
 
