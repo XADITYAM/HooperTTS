@@ -107,12 +107,12 @@ def build_interface() -> gr.Blocks:
             optimized_output = gr.Textbox(
                 label="Optimized Script",
                 lines=14,
-                show_copy_button=True,
+                
             )
             style_output = gr.Textbox(
                 label="Generated Style Prompt",
                 lines=8,
-                show_copy_button=True,
+                
             )
 
         audio_output = gr.Audio(label="Generated WAV", type="filepath")
