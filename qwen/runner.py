@@ -168,39 +168,37 @@ def resolve_model_checkpoint(model_location: str | None) -> str:
 def run_inference(
     model: Any, prompt: QwenPrompt, reference_audio: Path | None
 ) -> tuple[Any, int]:
-    """Run the best available Qwen inference path for the provided inputs."""
-    if reference_audio is not None:
-        ref_audio_path = load_reference_audio(reference_audio)
-        if hasattr(model, "generate_voice_clone"):
-            return model.generate_voice_clone(
-                text=prompt.optimized_text,
-                language="English",
-                ref_audio=ref_audio_path,
-                ref_text=None,
-                x_vector_only_mode=True,
-                max_new_tokens=2048,
-            )
+    """Run the official Qwen3-TTS 12Hz Base voice-clone example path."""
+    if reference_audio is None:
+        raise ValueError("Reference audio is required for the official Base example.")
 
-    if hasattr(model, "generate_voice_design"):
-        return model.generate_voice_design(
-            text=prompt.optimized_text,
-            language="English",
-            instruct=prompt.style_prompt,
-            non_streaming_mode=True,
-            max_new_tokens=2048,
-        )
+    ref_audio_single = load_reference_audio(reference_audio)
+    ref_text_single = None
+    syn_text_single = prompt.optimized_text
+    syn_lang_single = "Auto"
 
-    if hasattr(model, "generate_custom_voice"):
-        return model.generate_custom_voice(
-            text=prompt.optimized_text,
-            language="English",
-            speaker="ryan",
-            instruct=prompt.style_prompt,
-            non_streaming_mode=True,
-            max_new_tokens=2048,
-        )
+    common_gen_kwargs = dict(
+        max_new_tokens=2048,
+        do_sample=True,
+        top_k=50,
+        top_p=1.0,
+        temperature=0.9,
+        repetition_penalty=1.05,
+        subtalker_dosample=True,
+        subtalker_top_k=50,
+        subtalker_top_p=1.0,
+        subtalker_temperature=0.9,
+    )
 
-    raise RuntimeError("Loaded Qwen model does not expose a supported API.")
+    xvec_only = True
+    return model.generate_voice_clone(
+        text=syn_text_single,
+        language=syn_lang_single,
+        ref_audio=ref_audio_single,
+        ref_text=ref_text_single,
+        x_vector_only_mode=xvec_only,
+        **common_gen_kwargs,
+    )
 
 
 def load_reference_audio(reference_audio: Path) -> str:
