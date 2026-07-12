@@ -50,6 +50,29 @@ def test_runner_resolves_hugging_face_snapshot_path() -> None:
         assert runner.resolve_model_checkpoint(str(root)) == str(snapshot)
 
 
+def test_run_inference_passes_reference_audio_path_string() -> None:
+    class FakeVoiceCloneModel:
+        def generate_voice_clone(self, **kwargs):
+            assert isinstance(kwargs["ref_audio"], str)
+            assert kwargs["x_vector_only_mode"] is True
+            return [[0.0]], 24000
+
+    with TemporaryDirectory() as temp_dir:
+        reference_path = Path(temp_dir) / "voice.wav"
+        reference_path.write_text("fake wav", encoding="utf-8")
+        profile = ProfileManager().load("default")
+        prompt = build_prompt([], profile)
+
+        wavs, sample_rate = runner.run_inference(
+            FakeVoiceCloneModel(),
+            prompt,
+            reference_path,
+        )
+
+        assert wavs == [[0.0]]
+        assert sample_rate == 24000
+
+
 def test_runner_generate_with_mocked_qwen() -> None:
     original_diagnose = runner.diagnose
     original_load_model = runner.load_model
@@ -109,4 +132,5 @@ if __name__ == "__main__":
     test_prompt_builder_uses_planner_output()
     test_environment_diagnostics_format()
     test_runner_resolves_hugging_face_snapshot_path()
+    test_run_inference_passes_reference_audio_path_string()
     test_runner_generate_with_mocked_qwen()

@@ -169,12 +169,12 @@ def run_inference(
 ) -> tuple[Any, int]:
     """Run the best available Qwen inference path for the provided inputs."""
     if reference_audio is not None:
-        ref_audio = load_reference_audio(reference_audio)
+        ref_audio_path = load_reference_audio(reference_audio)
         if hasattr(model, "generate_voice_clone"):
             return model.generate_voice_clone(
                 text=prompt.optimized_text,
                 language="English",
-                ref_audio=ref_audio,
+                ref_audio=ref_audio_path,
                 ref_text=None,
                 x_vector_only_mode=True,
                 max_new_tokens=2048,
@@ -202,15 +202,12 @@ def run_inference(
     raise RuntimeError("Loaded Qwen model does not expose a supported API.")
 
 
-def load_reference_audio(reference_audio: Path) -> tuple[Any, int]:
-    """Load reference audio as the tuple expected by Qwen voice clone."""
+def load_reference_audio(reference_audio: Path) -> str:
+    """Return a reference audio path in the form expected by Qwen voice clone."""
     if not reference_audio.exists():
         raise FileNotFoundError(f"Reference audio not found: {reference_audio}")
 
-    import soundfile as sf  # type: ignore[import-not-found]
-
-    wav, sample_rate = sf.read(reference_audio)
-    return wav, int(sample_rate)
+    return str(reference_audio)
 
 
 def save_wav(output_path: Path, wav: Any, sample_rate: int) -> None:
