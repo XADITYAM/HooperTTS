@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from tempfile import gettempdir
 from typing import Any
@@ -20,6 +21,13 @@ PROFILE_CHOICES = [
     "youtube_shorts",
 ]
 OUTPUT_DIR = Path(gettempdir()) / "hoopertts_gradio"
+
+
+def _component(component_type: type[Any], **kwargs: Any) -> Any:
+    """Create a Gradio component with only kwargs supported by this version."""
+    parameters = inspect.signature(component_type.__init__).parameters
+    supported_kwargs = {key: value for key, value in kwargs.items() if key in parameters}
+    return component_type(**supported_kwargs)
 
 
 def _uploaded_path(uploaded_file: Any) -> Path | None:
@@ -85,39 +93,46 @@ def build_interface() -> gr.Blocks:
         )
 
         with gr.Row():
-            script_input = gr.File(
+            script_input = _component(
+                gr.File,
                 label="Script (.txt)",
                 file_types=[".txt"],
                 type="filepath",
             )
-            reference_input = gr.File(
+            reference_input = _component(
+                gr.File,
                 label="Reference Voice (.wav)",
                 file_types=[".wav"],
                 type="filepath",
             )
 
-        profile_input = gr.Dropdown(
+        profile_input = _component(
+            gr.Dropdown,
             choices=PROFILE_CHOICES,
             value="default",
             label="Narration Profile",
         )
-        generate_button = gr.Button("Generate Speech", variant="primary")
+        generate_button = _component(
+            gr.Button,
+            value="Generate Speech",
+            variant="primary",
+        )
 
         with gr.Row():
-            optimized_output = gr.Textbox(
+            optimized_output = _component(
+                gr.Textbox,
                 label="Optimized Script",
                 lines=14,
-                
             )
-            style_output = gr.Textbox(
+            style_output = _component(
+                gr.Textbox,
                 label="Generated Style Prompt",
                 lines=8,
-                
             )
 
-        audio_output = gr.Audio(label="Generated WAV", type="filepath")
-        download_output = gr.File(label="Download WAV")
-        diagnostics_output = gr.Textbox(label="Diagnostics", lines=8)
+        audio_output = _component(gr.Audio, label="Generated WAV", type="filepath")
+        download_output = _component(gr.File, label="Download WAV")
+        diagnostics_output = _component(gr.Textbox, label="Diagnostics", lines=8)
 
         generate_button.click(
             fn=generate_speech,
