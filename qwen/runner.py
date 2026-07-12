@@ -75,7 +75,6 @@ def generate(
         prompt=prompt,
     )
 
-
 def load_model(model_location: str | None) -> Any:
     """Load a Qwen3-TTS model from a local model location."""
     if model_location is None:
@@ -84,14 +83,19 @@ def load_model(model_location: str | None) -> Any:
     import torch  # type: ignore[import-not-found]
     from qwen_tts import Qwen3TTSModel  # type: ignore[import-not-found]
 
+    dtype = (
+        torch.bfloat16
+        if torch.cuda.is_bf16_supported()
+        else torch.float16
+    )
+
+    device_map = "auto" if torch.cuda.is_available() else "cpu"
+
     return Qwen3TTSModel.from_pretrained(
         model_location,
-        device_map="auto",
- dtype = (
-    torch.bfloat16
-    if torch.cuda.is_bf16_supported()
-    else torch.float16
-)
+        device_map=device_map,
+        dtype=dtype,
+    )
 
 
 def run_inference(
