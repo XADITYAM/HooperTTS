@@ -35,7 +35,11 @@ def main() -> None:
     run_benchmark(source_path, profile_name=DEFAULT_PROFILE)
 
 
-def run_benchmark(source_path: Path, profile_name: str = DEFAULT_PROFILE) -> str:
+def run_benchmark(
+    source_path: Path,
+    profile_name: str = DEFAULT_PROFILE,
+    output_dir: Path = OUTPUT_DIR,
+) -> str:
     """Run the benchmark for a source file and return optimized text."""
     original_text = source_path.read_text(encoding="utf-8")
     narration_profile = ProfileManager().load(profile_name)
@@ -45,7 +49,7 @@ def run_benchmark(source_path: Path, profile_name: str = DEFAULT_PROFILE) -> str
         original_text, style=DEFAULT_STYLE, profile=narration_profile.name
     )
 
-    write_outputs(original_text, optimized_text, OUTPUT_DIR)
+    write_outputs(original_text, optimized_text, output_dir)
     print_summary(
         source_path, original_text, optimized_text, DEFAULT_STYLE, narration_profile
     )

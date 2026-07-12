@@ -40,6 +40,11 @@ def build_parser() -> argparse.ArgumentParser:
         "benchmark", help="Benchmark a script and write output files."
     )
     benchmark_parser.add_argument("script", type=Path)
+    benchmark_parser.add_argument(
+        "--output",
+        type=Path,
+        help="Directory for benchmark files. Defaults to output/.",
+    )
     benchmark_parser.set_defaults(command=benchmark_command)
 
     compare_parser = subparsers.add_parser(
@@ -89,7 +94,10 @@ def optimize_command(args: argparse.Namespace) -> int:
 def benchmark_command(args: argparse.Namespace) -> int:
     """Run the benchmark for a script."""
     source_path = require_file(args.script)
-    run_benchmark(source_path, profile_name=args.profile)
+    if args.output is None:
+        run_benchmark(source_path, profile_name=args.profile)
+    else:
+        run_benchmark(source_path, profile_name=args.profile, output_dir=args.output)
     return 0
 
 

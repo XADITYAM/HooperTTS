@@ -31,17 +31,19 @@ def test_cli_optimize() -> None:
 
 def test_cli_benchmark() -> None:
     with TemporaryDirectory() as temp_dir:
-        script_path = Path(temp_dir) / "script.txt"
+        root = Path(temp_dir)
+        script_path = root / "script.txt"
+        output_dir = root / "benchmark-output"
         script_path.write_text(
             "Imagine HooperTTS. Officially confirmed.", encoding="utf-8"
         )
 
-        output = run_cli(["benchmark", str(script_path)])
+        output = run_cli(["benchmark", str(script_path), "--output", str(output_dir)])
 
-    assert "HooperTTS Benchmark" in output
-    assert "Profile Used" in output
-    assert Path("output/original.txt").exists()
-    assert Path("output/optimized.txt").exists()
+        assert "HooperTTS Benchmark" in output
+        assert "Profile Used" in output
+        assert (output_dir / "original.txt").exists()
+        assert (output_dir / "optimized.txt").exists()
 
 
 def test_cli_compare() -> None:
