@@ -45,7 +45,7 @@ Built on top of the official Qwen3-TTS models.
                  ▼
           Generated Speech
 
-        ## Acknowledgements
+ ## Acknowledgements
 
 HooperTTS is built on top of the excellent work by:
 
