@@ -1,35 +1,59 @@
-# HooperTTS
+# 🎤 HooperTTS
 
-Transform ordinary scripts into expressive narration for Qwen3-TTS.
+**HooperTTS is an AI narration engine that enhances scripts before generating expressive speech using Qwen3-TTS.**
 
-[Open in Colab]
+Instead of sending raw text directly to a TTS model, HooperTTS analyzes the script, improves pacing, narration flow, semantic chunking, pronunciation, and style prompts to produce more natural voice generation.
 
----
+Built on top of the official Qwen3-TTS models.
 
-## Demo
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-v1.0--Beta-orange)
+![Powered by](https://img.shields.io/badge/Powered%20by-Qwen3--TTS-red)
 
-GIF here
 
----
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]([YOUR_NOTEBOOK_URL](https://colab.research.google.com/drive/160Yh50wAGkrfmbCUIFDm5nVQLHnahu9q?usp=sharing))
 
 ## Features
 
-✅ Narration Profiles
+- 🎙️ Voice cloning using Qwen3-TTS
+- ✨ Script optimization before generation
+- 🧠 Narration planning
+- 🎭 Multiple narration profiles
+- 🔊 Pronunciation engine
+- ✂️ Semantic chunking
+- 📊 Benchmark & evaluation framework
+- 💻 CLI interface
+- 🌐 Gradio web interface
+- ☁️ Google Colab support
 
-✅ Pronunciation Engine
+-           Script (.txt)
+                 │
+                 ▼
+        HooperTTS Engine
+        ├───────────────┐
+        │ Script Optimizer
+        │ Pronunciation
+        │ Narration Planner
+        │ Semantic Chunking
+        │ Profiles
+        └───────────────┘
+                 │
+                 ▼
+        Official Qwen3-TTS
+                 │
+                 ▼
+          Generated Speech
 
-✅ Semantic Chunking
+        ## Acknowledgements
 
-✅ Native Qwen Integration
+HooperTTS is built on top of the excellent work by:
 
----
+- Qwen Team — Qwen3-TTS
+- NeuralFalcon — Google Colab inspiration
 
-## Quick Start
+HooperTTS extends the workflow with narration optimization, semantic chunking, pronunciation enhancement, and expressive prompting.
 
-git clone ...
+## Support the Project
 
-pip install -e .
-
-hoopertts doctor
-
-hoopertts generate ...
+If you found HooperTTS useful, consider giving the repository a ⭐.
