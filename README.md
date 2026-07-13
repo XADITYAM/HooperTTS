@@ -49,8 +49,8 @@ Built on top of the official Qwen3-TTS models.
 
 HooperTTS is built on top of the excellent work by:
 
-- Qwen Team — Qwen3-TTS
-- NeuralFalcon — Google Colab inspiration
+- Qwen Team - Qwen3-TTS
+- NeuralFalcon - Google Colab inspiration
 
 HooperTTS extends the workflow with narration optimization, semantic chunking, pronunciation enhancement, and expressive prompting.
 
