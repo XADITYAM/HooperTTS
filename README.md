@@ -12,7 +12,9 @@ Built on top of the official Qwen3-TTS models.
 ![Powered by](https://img.shields.io/badge/Powered%20by-Qwen3--TTS-red)
 
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]([YOUR_NOTEBOOK_URL](https://colab.research.google.com/drive/160Yh50wAGkrfmbCUIFDm5nVQLHnahu9q?usp=sharing))
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](
+https://colab.research.google.com/github/XADITYAM/HooperTTS/blob/main/notebooks/HooperTTS_Qwen.ipynb
+)
 
 ## Features
 
