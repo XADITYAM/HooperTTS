@@ -57,6 +57,11 @@ def build_speaker_prompt(profile: NarrationProfile) -> str:
     """Return a speaker prompt derived from the narration profile."""
     if profile.name == "gaming_news":
         return "Energetic gaming news narrator with clear, fast delivery."
+    if profile.name == "friendslop_gaming":
+        return (
+            "Casual gaming friend with curious, brisk delivery, playful warmth, "
+            "and controlled energy."
+        )
     if profile.name == "youtube_shorts":
         return "Punchy short-form narrator with high urgency and crisp diction."
     if profile.name == "podcast":

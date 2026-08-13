@@ -10,16 +10,11 @@ from uuid import uuid4
 
 import gradio as gr
 
+from core.profile import ProfileManager
 from qwen.runner import generate
 
 
-PROFILE_CHOICES = [
-    "default",
-    "documentary",
-    "gaming_news",
-    "podcast",
-    "youtube_shorts",
-]
+PROFILE_CHOICES = ProfileManager().list_profiles()
 OUTPUT_DIR = Path(gettempdir()) / "hoopertts_gradio"
 
 

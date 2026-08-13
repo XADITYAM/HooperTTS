@@ -25,6 +25,7 @@ include-package-data = true
   "profiles/default.json",
   "profiles/documentary.json",
   "profiles/gaming_news.json",
+  "profiles/friendslop_gaming.json",
   "profiles/youtube_shorts.json",
   "profiles/podcast.json"
 ]

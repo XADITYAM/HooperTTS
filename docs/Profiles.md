@@ -8,6 +8,7 @@ Narration profiles live in `profiles/` and are loaded by
 - `default`
 - `documentary`
 - `gaming_news`
+- `friendslop_gaming` — a curious, casual gaming-friend delivery for short-form narration
 - `youtube_shorts`
 - `podcast`
 

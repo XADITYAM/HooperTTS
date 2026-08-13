@@ -18,6 +18,7 @@ def test_profile_manager_loads_all_bundled_profiles() -> None:
     for profile_name in (
         "default",
         "documentary",
+        "friendslop_gaming",
         "gaming_news",
         "youtube_shorts",
         "podcast",
@@ -47,6 +48,19 @@ def test_optimizer_accepts_profile_keyword() -> None:
     assert "OFFICIALLY" in output
 
 
+def test_friendslop_gaming_uses_short_natural_delivery() -> None:
+    profile = ProfileManager().load("friendslop_gaming")
+    output = ScriptOptimizer().optimize(
+        "Imagine this. Officially confirmed. What do you think?",
+        profile=profile.name,
+    )
+
+    assert profile.chunk_target == 5
+    assert profile.reveal_style == "natural"
+    assert "Officially" in output
+    assert "OFFICIALLY" not in output
+
+
 def test_planner_uses_profile_chunk_target() -> None:
     profile = ProfileManager().load("youtube_shorts")
     plans = NarrationPlanner(profile).plan(
@@ -65,4 +79,5 @@ if __name__ == "__main__":
     test_profile_manager_loads_default()
     test_profile_manager_loads_all_bundled_profiles()
     test_optimizer_accepts_profile_keyword()
+    test_friendslop_gaming_uses_short_natural_delivery()
     test_planner_uses_profile_chunk_target()

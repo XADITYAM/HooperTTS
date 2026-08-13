@@ -1,0 +1,17 @@
+{
+  "pause_strength": 0.8,
+  "hook_style": "fast_hook",
+  "reveal_style": "natural",
+  "ending_style": "punchy",
+  "chunk_target": 5,
+  "energy_curve": {
+    "HOOK": 8,
+    "REVEAL": 7,
+    "QUESTION": 7,
+    "CTA": 6,
+    "EVIDENCE": 5,
+    "CONTRAST": 6,
+    "NORMAL": 6
+  },
+  "question_style": "curious"
+}

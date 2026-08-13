@@ -19,6 +19,14 @@ def test_prompt_builder_uses_planner_output() -> None:
     assert "gaming news narrator" in prompt.speaker_prompt
 
 
+def test_friendslop_gaming_prompt_uses_casual_delivery() -> None:
+    profile = ProfileManager().load("friendslop_gaming")
+    prompt = build_prompt([], profile)
+
+    assert "friendslop gaming narration style" in prompt.style_prompt
+    assert "Casual gaming friend" in prompt.speaker_prompt
+
+
 def test_environment_diagnostics_format() -> None:
     diagnostics = EnvironmentDiagnostics(
         cuda_available=False,
@@ -130,6 +138,7 @@ def test_runner_generate_with_mocked_qwen() -> None:
 
 if __name__ == "__main__":
     test_prompt_builder_uses_planner_output()
+    test_friendslop_gaming_prompt_uses_casual_delivery()
     test_environment_diagnostics_format()
     test_runner_resolves_hugging_face_snapshot_path()
     test_run_inference_passes_reference_audio_path_string()

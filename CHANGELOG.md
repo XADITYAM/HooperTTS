@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added the `friendslop_gaming` profile for casual, brisk short-form gaming
+  narration with controlled energy and natural reveals.
 - Added optional native Qwen3-TTS generation backend with environment
   diagnostics, prompt building, mocked tests, and CLI commands.
 - Added `evaluate.py` for recursive dataset evaluation with CSV, JSON, and
