@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Fixed a second protected-span validator bug found via a real script upload:
+  the capitalized-phrase pattern used `\s+` between words, so it could match
+  across a line break — e.g. the last word of one bullet-list item fused with
+  the first word of the next into a single fake protected phrase (bullet
+  items often have no ending punctuation). Any reformatting of that
+  whitespace then failed validation on both sides ("missing" and
+  "invented" simultaneously). The pattern now only matches within a line,
+  and the sentence-opener exclusion also recognizes list markers (`-`, `*`,
+  `1.`, etc.), not just `.!?` punctuation.
 - Fixed a bug where `ProtectedSpanValidator` treated every capitalized
   sentence-opening word (e.g. "Imagine", "Officially") as a protected proper
   noun, so almost any real rewrite was auto-rejected and enhancement silently

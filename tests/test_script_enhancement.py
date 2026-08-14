@@ -49,6 +49,29 @@ def test_protected_span_validator_does_not_flag_ordinary_sentence_openers() -> N
     assert not validator.validate(original_with_title, dropped_title).passed
 
 
+def test_protected_span_validator_does_not_fuse_across_bullet_list_lines() -> None:
+    """Regression test: a multi-word capitalized-phrase match must not cross a
+    line break. Bullet-list items often end without punctuation, so the last
+    word of one item and the first word of the next (e.g. "...seen in
+    Fortnite" followed on a new line by "The game...") were getting fused
+    into a single fake protected phrase like "Fortnite\\n    The" that no
+    reformatting could ever match exactly. Real cross-line reformatting
+    (e.g. normalizing indentation to dash bullets) must validate cleanly."""
+    validator = ProtectedSpanValidator()
+    original = (
+        "Future content could go beyond what we've seen in Fortnite\n"
+        "    The game reportedly has major PS5 features."
+    )
+    reformatted = (
+        "Future content could go beyond what we've seen in Fortnite\n"
+        "- The game reportedly has major PS5 features."
+    )
+
+    spans = validator.extract(original)
+    assert not any("\n" in span.value for span in spans)
+    assert validator.validate(original, reformatted).passed
+
+
 def test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate() -> None:
     """Regression test: a bare 'rejected by protected-span validation' message
     gave no way to tell what actually broke. The diagnostic must include the
@@ -140,6 +163,7 @@ def test_enhance_and_optimize_preserves_source_when_backend_unavailable() -> Non
 if __name__ == "__main__":
     test_protected_span_validator_preserves_factual_details()
     test_protected_span_validator_does_not_flag_ordinary_sentence_openers()
+    test_protected_span_validator_does_not_fuse_across_bullet_list_lines()
     test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate()
     test_validation_rejects_unsafe_candidate_and_returns_original()
     test_enhance_only_never_invokes_qwen()

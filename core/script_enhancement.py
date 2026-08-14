@@ -115,11 +115,16 @@ class ProtectedSpanValidator:
         re.IGNORECASE,
     )
     _NUMBER_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)?(?:%|[A-Za-z]+)?\b")
+    # [ \t]+ (not \s+) between words: a run of capitalized words must stay on
+    # one line to be treated as a single phrase. Without this, two unrelated
+    # capitalized words on either side of a line break (e.g. the last word of
+    # one bullet list item and the first word of the next) get fused into one
+    # fake "protected phrase" that no reformatting can ever match exactly.
     _CAPITALIZED_PHRASE_PATTERN = re.compile(
-        r"\b[A-Z][A-Za-z0-9'’-]*(?:\s+(?:[A-Z][A-Za-z0-9'’-]*|\d+|[IVX]+)){0,5}\b"
+        r"\b[A-Z][A-Za-z0-9'’-]*(?:[ \t]+(?:[A-Z][A-Za-z0-9'’-]*|\d+|[IVX]+)){0,5}\b"
     )
     _ORG_SUFFIX_PATTERN = re.compile(
-        r"\b[A-Z][A-Za-z0-9'’-]*(?:\s+[A-Z][A-Za-z0-9'’-]*)*\s+"
+        r"\b[A-Z][A-Za-z0-9'’-]*(?:[ \t]+[A-Z][A-Za-z0-9'’-]*)*[ \t]+"
         r"(?:Games|Studios|Interactive|Entertainment|Inc\.?|Ltd\.?)\b"
     )
 
@@ -145,15 +150,24 @@ class ProtectedSpanValidator:
 
     def _is_ordinary_sentence_opener(self, text: str, start: int, value: str) -> bool:
         """Return True for a single capitalized word that is only capitalized
-        because it opens a sentence (e.g. "Imagine", "Officially"), not because
-        it is a genuine name or title. Multi-word capitalized phrases are kept
-        protected even at a sentence start, since those are almost always real
-        titles or names (e.g. "Grand Theft Auto 6 arrives...")."""
+        because it opens a sentence or a list/paragraph line (e.g. "Imagine",
+        "Officially", or the first word after a bullet marker like "- " or
+        "1)"), not because it is a genuine name or title. Multi-word
+        capitalized phrases are kept protected regardless of position, since
+        those are almost always real titles or names (e.g. "Grand Theft
+        Auto 6 arrives...")."""
         if " " in value:
             return False
+        line_start = text.rfind("\n", 0, start) + 1
+        line_prefix = text[line_start:start]
+        # Strip whitespace and common list-marker characters (bullets, dashes,
+        # numbering, punctuation) from the start of the line up to this word.
+        # If nothing meaningful is left, this word is the first real content
+        # on its line/list item, not a mid-sentence proper noun.
+        if not line_prefix.strip(" \t-*\u2022\u2023\u25e6\u25aa\u00b7()0123456789.:"):
+            return True
         prefix = text[:start].rstrip()
-        is_sentence_start = not prefix or prefix[-1] in ".!?\"'\u201d)"
-        return is_sentence_start
+        return not prefix or prefix[-1] in ".!?\"'\u201d)"
 
     def validate(self, original_text: str, candidate_text: str) -> ValidationResult:
         """Ensure source protected spans survive and candidates add none of their own."""
