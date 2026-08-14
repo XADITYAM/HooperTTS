@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 
 import qwen.runner as runner
 from core.profile import ProfileManager
+from core.script_enhancement import EnhancementMode
 from qwen.environment import EnvironmentDiagnostics, format_diagnostics
 from qwen.prompt_builder import build_prompt
 
@@ -136,6 +137,139 @@ def test_runner_generate_with_mocked_qwen() -> None:
         runner.save_wav = original_save_wav
 
 
+def test_runner_generate_defaults_to_optimize_only_without_loading_enhancer() -> None:
+    """Default generate() must not build a Hugging Face backend at all."""
+    original_build_backend = runner._build_enhancement_backend
+    calls: list[tuple[EnhancementMode, str]] = []
+
+    def spying_build_backend(mode, model_tier):
+        calls.append((mode, model_tier))
+        return original_build_backend(mode, model_tier)
+
+    original_diagnose = runner.diagnose
+    original_load_model = runner.load_model
+    original_run_inference = runner.run_inference
+    original_save_wav = runner.save_wav
+    runner._build_enhancement_backend = spying_build_backend
+
+    try:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            script_path = root / "script.txt"
+            output_path = root / "output.wav"
+            script_path.write_text(
+                "Imagine HooperTTS. Officially confirmed.", encoding="utf-8"
+            )
+
+            runner.diagnose = lambda: EnvironmentDiagnostics(
+                cuda_available=True,
+                torch_available=True,
+                qwen_tts_available=True,
+                soundfile_available=True,
+                model_location=str(root / "model"),
+                model_available=True,
+                ffmpeg_available=True,
+                messages=["Ready."],
+            )
+            runner.load_model = lambda model_location: object()
+            runner.run_inference = lambda model, prompt, reference_audio: (
+                [[0.0, 0.1, -0.1]],
+                24000,
+            )
+            runner.save_wav = lambda path, wav, sample_rate: path.write_text(
+                f"{sample_rate}:{len(wav)}", encoding="utf-8"
+            )
+
+            result = runner.generate(
+                script_path=script_path,
+                reference_audio=None,
+                profile="default",
+                output_path=output_path,
+            )
+
+            assert result.success
+            assert result.enhancement_diagnostic is None
+            assert calls == [(EnhancementMode.OPTIMIZE_ONLY, "quality")]
+    finally:
+        runner._build_enhancement_backend = original_build_backend
+        runner.diagnose = original_diagnose
+        runner.load_model = original_load_model
+        runner.run_inference = original_run_inference
+        runner.save_wav = original_save_wav
+
+
+def test_runner_generate_enhance_mode_populates_enhancement_diagnostic() -> None:
+    """Requesting enhancement should surface the backend's diagnostic message."""
+
+    class FakeBackend:
+        name = "fake"
+
+        def enhance(self, text, *, analysis, policy):
+            from core.enhancement_backends import BackendEnhancement
+
+            return BackendEnhancement(
+                text=text,
+                backend_name=self.name,
+                available=True,
+                diagnostic="Generated a candidate with the fake backend.",
+            )
+
+    original_build_backend = runner._build_enhancement_backend
+    original_diagnose = runner.diagnose
+    original_load_model = runner.load_model
+    original_run_inference = runner.run_inference
+    original_save_wav = runner.save_wav
+    runner._build_enhancement_backend = lambda mode, model_tier: FakeBackend()
+
+    try:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            script_path = root / "script.txt"
+            output_path = root / "output.wav"
+            script_path.write_text(
+                "Imagine HooperTTS. Officially confirmed.", encoding="utf-8"
+            )
+
+            runner.diagnose = lambda: EnvironmentDiagnostics(
+                cuda_available=True,
+                torch_available=True,
+                qwen_tts_available=True,
+                soundfile_available=True,
+                model_location=str(root / "model"),
+                model_available=True,
+                ffmpeg_available=True,
+                messages=["Ready."],
+            )
+            runner.load_model = lambda model_location: object()
+            runner.run_inference = lambda model, prompt, reference_audio: (
+                [[0.0, 0.1, -0.1]],
+                24000,
+            )
+            runner.save_wav = lambda path, wav, sample_rate: path.write_text(
+                f"{sample_rate}:{len(wav)}", encoding="utf-8"
+            )
+
+            result = runner.generate(
+                script_path=script_path,
+                reference_audio=None,
+                profile="default",
+                output_path=output_path,
+                enhancement_mode=EnhancementMode.ENHANCE_AND_OPTIMIZE,
+                enhancement_model_tier="fast",
+            )
+
+            assert result.success
+            assert result.enhancement_diagnostic == (
+                "Generated a candidate with the fake backend."
+            )
+    finally:
+        runner._build_enhancement_backend = original_build_backend
+        runner.diagnose = original_diagnose
+        runner.load_model = original_load_model
+        runner.run_inference = original_run_inference
+        runner.save_wav = original_save_wav
+
+
 if __name__ == "__main__":
     test_prompt_builder_uses_planner_output()
     test_friendslop_gaming_prompt_uses_casual_delivery()
@@ -143,3 +277,5 @@ if __name__ == "__main__":
     test_runner_resolves_hugging_face_snapshot_path()
     test_run_inference_passes_reference_audio_path_string()
     test_runner_generate_with_mocked_qwen()
+    test_runner_generate_defaults_to_optimize_only_without_loading_enhancer()
+    test_runner_generate_enhance_mode_populates_enhancement_diagnostic()

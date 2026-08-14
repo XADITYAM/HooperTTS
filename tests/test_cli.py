@@ -80,7 +80,14 @@ def test_cli_generate_accepts_command_profile() -> None:
             output_path = root / "output.wav"
             script_path.write_text("Imagine HooperTTS.", encoding="utf-8")
 
-            def fake_generate(script_path, reference_audio, profile, output_path):
+            def fake_generate(
+                script_path,
+                reference_audio,
+                profile,
+                output_path,
+                enhancement_mode=None,
+                enhancement_model_tier=None,
+            ):
                 assert profile == "gaming_news"
                 Path(output_path).write_text("wav", encoding="utf-8")
                 return GenerationResult(

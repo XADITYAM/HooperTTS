@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Wired the existing Script Intelligence enhancement pipeline into the actual
+  generation path: `qwen.runner.generate()` now accepts `enhancement_mode`
+  and `enhancement_model_tier`, the Gradio app exposes a Script Enhancement
+  dropdown (default off) and a Quality/Fast model-tier dropdown, and the CLI
+  `generate` command gains matching `--enhance` / `--enhance-model` flags.
+  Enhancement diagnostics are surfaced in both the app and CLI output.
 - Added the v0.3-beta optional Hugging Face Qwen3 enhancement backend with
   lazy loading, CUDA-memory checks, immediate resource release, and audited
   change records.

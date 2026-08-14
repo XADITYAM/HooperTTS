@@ -72,6 +72,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Narration profile to use for generation.",
     )
     generate_parser.add_argument("--output", required=True, type=Path)
+    generate_parser.add_argument(
+        "--enhance",
+        choices=["off", "enhance_only", "enhance_and_optimize"],
+        default="off",
+        help=(
+            "Optional LLM script enhancement before optimization. Off by "
+            "default. Requires `pip install -e '.[enhancement]'`."
+        ),
+    )
+    generate_parser.add_argument(
+        "--enhance-model",
+        choices=["quality", "fast"],
+        default="quality",
+        help=(
+            "Enhancement model tier: quality=Qwen3-1.7B (default), "
+            "fast=Qwen3-0.6B for constrained GPUs."
+        ),
+    )
     generate_parser.set_defaults(command=generate_command)
 
     validate_parser = subparsers.add_parser(
@@ -138,7 +156,14 @@ def doctor_command(args: argparse.Namespace) -> int:
 
 def generate_command(args: argparse.Namespace) -> int:
     """Generate speech with the optional Qwen backend."""
+    from core.script_enhancement import EnhancementMode
     from qwen.runner import generate
+
+    enhancement_mode = {
+        "off": EnhancementMode.OPTIMIZE_ONLY,
+        "enhance_only": EnhancementMode.ENHANCE_ONLY,
+        "enhance_and_optimize": EnhancementMode.ENHANCE_AND_OPTIMIZE,
+    }[args.enhance]
 
     script_path = require_file(args.script)
     reference_audio = require_file(args.reference) if args.reference else None
@@ -147,8 +172,12 @@ def generate_command(args: argparse.Namespace) -> int:
         reference_audio=reference_audio,
         profile=args.profile,
         output_path=args.output,
+        enhancement_mode=enhancement_mode,
+        enhancement_model_tier=args.enhance_model,
     )
     print(result.diagnostics)
+    if result.enhancement_diagnostic:
+        print(f"Script enhancement: {result.enhancement_diagnostic}")
     if result.prompt:
         print()
         print("Qwen Prompt")

@@ -7,14 +7,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.optimizer import ScriptOptimizer
+from core.enhancement_backends import HuggingFaceEnhancementBackend, HuggingFaceEnhancementConfig
 from core.planner import NarrationPlanner
 from core.profile import ProfileManager
+from core.script_enhancement import EnhancementMode, ScriptEnhancer, ScriptIntelligence
 from .environment import diagnose, format_diagnostics
 from .prompt_builder import QwenPrompt, build_prompt
 
 
 DEFAULT_QWEN_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+
+# Script-enhancer model tiers offered in the CLI and Gradio UI. Quality is the
+# default: Qwen3-1.7B gives materially better pacing/emphasis output than the
+# 0.6B model for a modest VRAM cost. Fast exists for constrained Colab
+# sessions (e.g. when the free-tier T4 is already tight on memory).
+ENHANCEMENT_MODEL_TIERS: dict[str, str] = {
+    "quality": "Qwen/Qwen3-1.7B",
+    "fast": "Qwen/Qwen3-0.6B",
+}
+DEFAULT_ENHANCEMENT_MODEL_TIER = "quality"
 
 
 @dataclass(frozen=True)
@@ -25,6 +36,7 @@ class GenerationResult:
     output_path: str | None
     diagnostics: str
     prompt: QwenPrompt | None = None
+    enhancement_diagnostic: str | None = None
 
 
 def generate(
@@ -32,18 +44,39 @@ def generate(
     reference_audio: str | Path | None,
     profile: str,
     output_path: str | Path,
+    enhancement_mode: EnhancementMode | str = EnhancementMode.OPTIMIZE_ONLY,
+    enhancement_model_tier: str = DEFAULT_ENHANCEMENT_MODEL_TIER,
 ) -> GenerationResult:
-    """Optimize a script, build a Qwen prompt, generate audio, and save WAV."""
+    """Optimize (and optionally enhance) a script, build a Qwen prompt, and generate audio.
+
+    Script enhancement is opt-in and off by default (``EnhancementMode.OPTIMIZE_ONLY``),
+    so existing callers keep their current behavior unchanged. Passing
+    ``ENHANCE_ONLY`` or ``ENHANCE_AND_OPTIMIZE`` lazily loads the Hugging Face
+    Qwen3 backend for a single generation call, then releases it before the
+    Qwen3-TTS model is loaded.
+    """
     script = Path(script_path)
     output = Path(output_path)
     if not script.exists():
         return GenerationResult(False, None, f"Script not found: {script}")
 
+    mode = EnhancementMode(enhancement_mode)
     narration_profile = ProfileManager().load(profile)
     original_text = script.read_text(encoding="utf-8")
-    optimized_text = ScriptOptimizer().optimize(
-        original_text, profile=narration_profile.name
+
+    intelligence = ScriptIntelligence(
+        enhancer=ScriptEnhancer(backend=_build_enhancement_backend(mode, enhancement_model_tier))
     )
+    intelligence_result = intelligence.process(
+        original_text, mode=mode, profile=narration_profile.name
+    )
+    optimized_text = intelligence_result.output_text
+    enhancement_diagnostic = (
+        intelligence_result.enhancement.diagnostic
+        if intelligence_result.enhancement is not None
+        else None
+    )
+
     narration_plan = NarrationPlanner(narration_profile).plan(optimized_text)
     prompt = build_prompt(narration_plan, narration_profile)
 
@@ -54,6 +87,7 @@ def generate(
             output_path=None,
             diagnostics=format_diagnostics(diagnostics),
             prompt=prompt,
+            enhancement_diagnostic=enhancement_diagnostic,
         )
 
     try:
@@ -70,6 +104,7 @@ def generate(
             output_path=None,
             diagnostics=f"Qwen generation failed:\n{traceback.format_exc()}",
             prompt=prompt,
+            enhancement_diagnostic=enhancement_diagnostic,
         )
 
     return GenerationResult(
@@ -77,7 +112,21 @@ def generate(
         output_path=str(output),
         diagnostics=f"Wrote {output}",
         prompt=prompt,
+        enhancement_diagnostic=enhancement_diagnostic,
     )
+
+
+def _build_enhancement_backend(mode: EnhancementMode, model_tier: str):
+    """Return the enhancement backend to use, without importing Torch/Transformers unless needed."""
+    if mode is EnhancementMode.OPTIMIZE_ONLY:
+        from core.enhancement_backends import UnavailableEnhancementBackend
+
+        return UnavailableEnhancementBackend()
+
+    model_id = ENHANCEMENT_MODEL_TIERS.get(
+        model_tier, ENHANCEMENT_MODEL_TIERS[DEFAULT_ENHANCEMENT_MODEL_TIER]
+    )
+    return HuggingFaceEnhancementBackend(config=HuggingFaceEnhancementConfig(model_id=model_id))
 
 
 def load_model(model_location: str | None) -> Any:

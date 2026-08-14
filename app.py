@@ -11,11 +11,27 @@ from uuid import uuid4
 import gradio as gr
 
 from core.profile import ProfileManager
+from core.script_enhancement import EnhancementMode
 from qwen.runner import generate
 
 
 PROFILE_CHOICES = ProfileManager().list_profiles()
 OUTPUT_DIR = Path(gettempdir()) / "hoopertts_gradio"
+
+# Script enhancement is optional and off by default. Users on a constrained
+# Colab session can leave it off entirely, or turn it on and pick a model
+# tier before hitting Generate.
+ENHANCEMENT_MODE_CHOICES: dict[str, EnhancementMode] = {
+    "Off (optimize only)": EnhancementMode.OPTIMIZE_ONLY,
+    "Enhance script": EnhancementMode.ENHANCE_ONLY,
+    "Enhance + optimize (recommended)": EnhancementMode.ENHANCE_AND_OPTIMIZE,
+}
+ENHANCEMENT_MODEL_CHOICES: dict[str, str] = {
+    "Quality — Qwen3-1.7B (recommended)": "quality",
+    "Fast — Qwen3-0.6B (lower VRAM)": "fast",
+}
+DEFAULT_ENHANCEMENT_MODE_LABEL = "Off (optimize only)"
+DEFAULT_ENHANCEMENT_MODEL_LABEL = "Quality — Qwen3-1.7B (recommended)"
 
 
 def _component(component_type: type[Any], **kwargs: Any) -> Any:
@@ -40,6 +56,8 @@ def generate_speech(
     script_file: Any,
     reference_audio: Any,
     profile: str,
+    enhancement_mode_label: str,
+    enhancement_model_label: str,
 ) -> tuple[str, str, str | None, str | None, str]:
     """Generate speech and return UI-ready optimized text, prompt, audio, and logs."""
     script_path = _uploaded_path(script_file)
@@ -57,11 +75,20 @@ def generate_speech(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / f"hoopertts_{uuid4().hex}.wav"
 
+    enhancement_mode = ENHANCEMENT_MODE_CHOICES.get(
+        enhancement_mode_label, EnhancementMode.OPTIMIZE_ONLY
+    )
+    enhancement_model_tier = ENHANCEMENT_MODEL_CHOICES.get(
+        enhancement_model_label, "quality"
+    )
+
     result = generate(
         script_path=script_path,
         reference_audio=reference_path,
         profile=profile,
         output_path=output_path,
+        enhancement_mode=enhancement_mode,
+        enhancement_model_tier=enhancement_model_tier,
     )
 
     optimized_script = result.prompt.optimized_text if result.prompt else ""
@@ -69,12 +96,16 @@ def generate_speech(
     audio_path = result.output_path if result.success else None
     download_path = result.output_path if result.success else None
 
+    diagnostics = result.diagnostics
+    if result.enhancement_diagnostic:
+        diagnostics = f"{diagnostics}\n\nScript enhancement: {result.enhancement_diagnostic}"
+
     return (
         optimized_script,
         style_prompt,
         audio_path,
         download_path,
-        result.diagnostics,
+        diagnostics,
     )
 
 
@@ -107,6 +138,29 @@ def build_interface() -> gr.Blocks:
             value="default",
             label="Narration Profile",
         )
+
+        with gr.Row():
+            enhancement_mode_input = _component(
+                gr.Dropdown,
+                choices=list(ENHANCEMENT_MODE_CHOICES.keys()),
+                value=DEFAULT_ENHANCEMENT_MODE_LABEL,
+                label="Script Enhancement (optional, uses an LLM)",
+            )
+            enhancement_model_input = _component(
+                gr.Dropdown,
+                choices=list(ENHANCEMENT_MODEL_CHOICES.keys()),
+                value=DEFAULT_ENHANCEMENT_MODEL_LABEL,
+                label="Enhancement Model",
+            )
+        gr.Markdown(
+            "Script enhancement is optional and off by default. Turning it on "
+            "loads a small Qwen3 language model on the GPU just before "
+            "generation, rewrites the script for pacing/clarity, validates "
+            "that no facts changed, then releases the model before Qwen3-TTS "
+            "loads. On Colab's free tier, prefer **Fast — Qwen3-0.6B** if "
+            "you're low on GPU memory."
+        )
+
         generate_button = _component(
             gr.Button,
             value="Generate Speech",
@@ -131,7 +185,13 @@ def build_interface() -> gr.Blocks:
 
         generate_button.click(
             fn=generate_speech,
-            inputs=[script_input, reference_input, profile_input],
+            inputs=[
+                script_input,
+                reference_input,
+                profile_input,
+                enhancement_mode_input,
+                enhancement_model_input,
+            ],
             outputs=[
                 optimized_output,
                 style_output,

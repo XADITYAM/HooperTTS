@@ -29,6 +29,13 @@ only Transformers and Accelerate.
 Set `HOOPERTTS_ENHANCEMENT_MODEL_ID=Qwen/Qwen3-0.6B` before running to use the
 smaller model. The experiment reads its input but never writes to it.
 
+`qwen.runner.generate()` (used by both `app.py` and `hoopertts generate`) now
+wires this pipeline into the real generation path via `enhancement_mode`
+(`optimize_only` default / `enhance_only` / `enhance_and_optimize`) and
+`enhancement_model_tier` (`quality` → Qwen3-1.7B default, `fast` →
+Qwen3-0.6B). The Gradio app exposes both as dropdowns, off by default, so a
+Colab free-tier user only pays the extra model-load cost if they opt in.
+
 ```mermaid
 flowchart LR
     A["Input script"] --> B["ScriptAnalyzer"]
