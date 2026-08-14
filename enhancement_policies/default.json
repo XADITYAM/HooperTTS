@@ -1,0 +1,16 @@
+{
+  "writing_goals": [
+    "preserve factual information",
+    "make only targeted, useful improvements",
+    "allow strong sentences to remain unchanged"
+  ],
+  "avoid": [
+    "invented claims",
+    "unnecessary rewriting",
+    "topic drift"
+  ],
+  "revision_limits": {
+    "max_changed_sentences_ratio": 0.4,
+    "allow_unchanged_sentences": true
+  }
+}

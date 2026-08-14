@@ -12,12 +12,18 @@ license = "MIT"
 authors = [{ name = "HooperTTS" }]
 dependencies = []
 
+[project.optional-dependencies]
+enhancement = [
+  "accelerate>=0.26",
+  "transformers>=4.51.0"
+]
+
 [project.scripts]
 hoopertts = "core.cli:main"
 
 [tool.setuptools]
 packages = ["core", "qwen"]
-py-modules = ["benchmark", "evaluate"]
+py-modules = ["benchmark", "enhancement_benchmark", "evaluate"]
 include-package-data = true
 
 [tool.setuptools.data-files]
@@ -28,6 +34,10 @@ include-package-data = true
   "profiles/friendslop_gaming.json",
   "profiles/youtube_shorts.json",
   "profiles/podcast.json"
+]
+"enhancement_policies" = [
+  "enhancement_policies/default.json",
+  "enhancement_policies/friendslop_gaming.json"
 ]
 "." = ["pronunciation.json"]
 

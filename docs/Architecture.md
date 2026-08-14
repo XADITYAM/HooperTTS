@@ -2,6 +2,41 @@
 
 HooperTTS is a small, dependency-free narration optimization pipeline.
 
+## Script Intelligence v0.3-alpha
+
+The optional Script Intelligence foundation sits before narration optimization.
+It provides deterministic analysis, profile-aware enhancement policies, and
+protected-span validation without changing the existing optimizer or requiring
+an LLM backend. Its default enhancement backend is unavailable and preserves
+the source text with a diagnostic.
+
+v0.3-beta adds an opt-in `HuggingFaceEnhancementBackend` for Qwen3 text
+generation. It is never loaded by default or in Optimize Only mode. It loads
+only while enhancement is explicitly requested, releases its model and CUDA
+cache immediately after generation, and still passes every candidate through
+the protected-span validator.
+
+To install the optional backend in a GPU Google Colab runtime:
+
+```bash
+pip install -e ".[enhancement]"
+python enhancement_benchmark.py samples/benchmark.txt --profile friendslop_gaming
+```
+
+Google Colab GPU runtimes already include PyTorch; the optional extra installs
+only Transformers and Accelerate.
+
+Set `HOOPERTTS_ENHANCEMENT_MODEL_ID=Qwen/Qwen3-0.6B` before running to use the
+smaller model. The experiment reads its input but never writes to it.
+
+```mermaid
+flowchart LR
+    A["Input script"] --> B["ScriptAnalyzer"]
+    B --> C["Optional ScriptEnhancer"]
+    C --> D["ScriptOptimizer"]
+    D --> E["Narration-ready text"]
+```
+
 ```mermaid
 flowchart TD
     A["Input script"] --> B["PronunciationEngine"]

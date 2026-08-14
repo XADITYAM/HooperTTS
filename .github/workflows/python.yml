@@ -33,11 +33,17 @@ jobs:
           python tests/test_cli.py
           python tests/test_evaluate.py
           python tests/test_qwen.py
+          python tests/test_script_analysis.py
+          python tests/test_enhancement_policy.py
+          python tests/test_enhancement_backends.py
+          python tests/test_script_enhancement.py
+          python tests/test_huggingface_enhancement_backend.py
 
       - name: Compile Python files
         run: >
           python -m py_compile
           benchmark.py
+          enhancement_benchmark.py
           demo.py
           evaluate.py
           core/__init__.py
@@ -49,6 +55,11 @@ jobs:
           core/pronunciation.py
           core/rhythm.py
           core/style_rules.py
+          core/script_analysis.py
+          core/enhancement_policy.py
+          core/enhancement_backends.py
+          core/script_enhancement.py
+          tests/test_huggingface_enhancement_backend.py
           qwen/__init__.py
           qwen/environment.py
           qwen/prompt_builder.py
@@ -59,3 +70,7 @@ jobs:
           tests/test_optimizer.py
           tests/test_profile.py
           tests/test_qwen.py
+          tests/test_script_analysis.py
+          tests/test_enhancement_policy.py
+          tests/test_enhancement_backends.py
+          tests/test_script_enhancement.py

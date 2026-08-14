@@ -1,0 +1,20 @@
+{
+  "writing_goals": [
+    "lead with the immediate game premise or discovery",
+    "use curiosity-driven framing without replacing useful facts with hype",
+    "keep setup compact and retain specific game details",
+    "prefer conversational wording and natural reactions when appropriate",
+    "favor short-form pacing, high information density, and natural transitions",
+    "use conversational endings rather than corporate calls to action"
+  ],
+  "avoid": [
+    "creator-specific wording or catchphrases",
+    "generic hype that removes factual information",
+    "invented game features, dates, platforms, prices, or developers",
+    "unnecessary full-script rewrites"
+  ],
+  "revision_limits": {
+    "max_changed_sentences_ratio": 0.4,
+    "allow_unchanged_sentences": true
+  }
+}

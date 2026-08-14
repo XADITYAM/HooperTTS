@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added the v0.3-beta optional Hugging Face Qwen3 enhancement backend with
+  lazy loading, CUDA-memory checks, immediate resource release, and audited
+  change records.
+- Added the v0.3-alpha Script Intelligence foundation: deterministic script
+  analysis, profile-aware enhancement policies, protected-span validation, and
+  an unavailable-by-default enhancement backend contract.
 - Added the `friendslop_gaming` profile for casual, brisk short-form gaming
   narration with controlled energy and natural reveals.
 - Added optional native Qwen3-TTS generation backend with environment
