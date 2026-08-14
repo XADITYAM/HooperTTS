@@ -31,6 +31,46 @@ def test_protected_span_validator_preserves_factual_details() -> None:
     assert any("Rockstar Games" in diagnostic for diagnostic in invalid.diagnostics)
 
 
+def test_protected_span_validator_does_not_flag_ordinary_sentence_openers() -> None:
+    """Regression test: a single capitalized word is often just capitalized
+    because it opens a sentence (e.g. "Imagine", "Officially"), not because it
+    is a genuine name. Rejecting every such reword made enhancement a no-op in
+    practice, since almost any rewrite changes at least one sentence-opening
+    word. Real names/titles must still be protected even when they happen to
+    open a sentence, as long as they are multi-word (e.g. "Grand Theft Auto")."""
+    validator = ProtectedSpanValidator()
+
+    original = "Imagine opening HooperTTS. Officially confirmed, it works great."
+    reworded = "Picture opening HooperTTS \u2014 officially confirmed to work great."
+    assert validator.validate(original, reworded).passed
+
+    original_with_title = "Grand Theft Auto 6 arrives this summer. Players are thrilled."
+    dropped_title = "A new game arrives this summer. Players are thrilled."
+    assert not validator.validate(original_with_title, dropped_title).passed
+
+
+def test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate() -> None:
+    """Regression test: a bare 'rejected by protected-span validation' message
+    gave no way to tell what actually broke. The diagnostic must include the
+    specific missing/invented spans."""
+
+    class DroppingBackend:
+        def enhance(self, text, *, analysis, policy):
+            return BackendEnhancement(
+                text="A new game arrives next year for $70.",
+                backend_name="dropping-test",
+                available=True,
+                diagnostic="Candidate returned.",
+            )
+
+    source = "Grand Theft Auto 6 arrives on August 27 for PS5 at $69.99."
+    result = ScriptEnhancer(backend=DroppingBackend()).enhance(source)
+
+    assert not result.validation.passed
+    assert "Grand Theft Auto 6" in result.diagnostic
+    assert result.enhanced_text == source
+
+
 def test_validation_rejects_unsafe_candidate_and_returns_original() -> None:
     source = "Grand Theft Auto 6 arrives on August 27 for PS5."
     result = ScriptEnhancer(backend=UnsafeBackend()).enhance(
@@ -99,6 +139,8 @@ def test_enhance_and_optimize_preserves_source_when_backend_unavailable() -> Non
 
 if __name__ == "__main__":
     test_protected_span_validator_preserves_factual_details()
+    test_protected_span_validator_does_not_flag_ordinary_sentence_openers()
+    test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate()
     test_validation_rejects_unsafe_candidate_and_returns_original()
     test_enhance_only_never_invokes_qwen()
     test_optimize_only_matches_existing_optimizer()

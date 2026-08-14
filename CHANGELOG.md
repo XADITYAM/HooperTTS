@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Fixed a bug where `ProtectedSpanValidator` treated every capitalized
+  sentence-opening word (e.g. "Imagine", "Officially") as a protected proper
+  noun, so almost any real rewrite was auto-rejected and enhancement silently
+  returned the original script unchanged. Now only genuine names/titles are
+  protected — multi-word capitalized phrases, and single capitalized words
+  that aren't just sentence-initial. Genuine fact drops (dates, prices,
+  platforms, real names) are still rejected as before.
+- Rejected-candidate diagnostics now include the specific missing/invented
+  spans instead of a bare "rejected by protected-span validation" message.
 - Wired the existing Script Intelligence enhancement pipeline into the actual
   generation path: `qwen.runner.generate()` now accepts `enhancement_mode`
   and `enhancement_model_tier`, the Gradio app exposes a Script Enhancement

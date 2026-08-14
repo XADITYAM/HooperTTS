@@ -137,9 +137,23 @@ class ProtectedSpanValidator:
             spans.extend(self._find("platform", pattern, text))
         for match in self._CAPITALIZED_PHRASE_PATTERN.finditer(text):
             value = match.group(0)
+            if self._is_ordinary_sentence_opener(text, match.start(), value):
+                continue
             kind: ProtectedSpanKind = "title" if any(char.isdigit() for char in value) else "proper_noun"
             spans.append(ProtectedSpan(kind=kind, value=value))
         return self._unique(spans)
+
+    def _is_ordinary_sentence_opener(self, text: str, start: int, value: str) -> bool:
+        """Return True for a single capitalized word that is only capitalized
+        because it opens a sentence (e.g. "Imagine", "Officially"), not because
+        it is a genuine name or title. Multi-word capitalized phrases are kept
+        protected even at a sentence start, since those are almost always real
+        titles or names (e.g. "Grand Theft Auto 6 arrives...")."""
+        if " " in value:
+            return False
+        prefix = text[:start].rstrip()
+        is_sentence_start = not prefix or prefix[-1] in ".!?\"'\u201d)"
+        return is_sentence_start
 
     def validate(self, original_text: str, candidate_text: str) -> ValidationResult:
         """Ensure source protected spans survive and candidates add none of their own."""
@@ -215,7 +229,10 @@ class ScriptEnhancer:
                 changes=(),
                 backend_name=candidate.backend_name,
                 backend_available=True,
-                diagnostic="Enhancement was rejected by protected-span validation.",
+                diagnostic=(
+                    "Enhancement was rejected by protected-span validation: "
+                    + "; ".join(validation.diagnostics)
+                ),
                 validation=validation,
             )
         changes = self._build_change_records(text, candidate.text)
