@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Loosened the `friendslop_gaming` policy, which was structurally preventing
+  any real creative rewrite: `max_changed_sentences_ratio` was 0.4, so a
+  rewrite touching most of the script (e.g. adding a hook, reordering for
+  a surprise beat) got discarded wholesale and silently fell back to the
+  original text. Raised the ratio to 0.9, added explicit "open with a hook"
+  / "build toward a surprising detail" writing goals, and removed the
+  "unnecessary full-script rewrites" restriction that conflicted with them.
+  Also removed the hardcoded "keep a strong sentence unchanged" line from
+  the shared prompt template (it was overriding per-profile intent) —
+  restraint vs. boldness is now controlled entirely by each profile's own
+  writing_goals/avoid list. `default` and any unlisted profile are
+  unaffected (already self-regulate via their own "avoid unnecessary
+  rewriting"). Fact protection (protected-span validation) is unchanged.
 - Fixed the enhancer prompt flattening bulleted/list-style scripts into a
   single run-on sentence with no punctuation between former items (found via
   real generation output). The prompt now explicitly tells the model to keep

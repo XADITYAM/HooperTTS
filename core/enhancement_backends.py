@@ -201,11 +201,14 @@ class HuggingFaceEnhancementBackend:
 
 Return ONLY the revised script, with no commentary, labels, markdown, or explanation.
 Preserve every factual claim. Do not invent, remove, or alter game features, names,
-organizations, dates, numbers, prices, platforms, URLs, or quotations. Keep a strong
-sentence unchanged when it already works. Do not use creator-specific wording.
+organizations, dates, numbers, prices, platforms, URLs, or quotations. Do not use
+creator-specific wording.
 If the source has line breaks separating list items or bullet points, keep each item
 as its own sentence or clause with clear ending punctuation. Never merge separate
 list items into a single run-on sentence with no punctuation between them.
+Follow the writing goals below even if it means substantially restructuring the
+script (e.g. reordering for a stronger opening hook) — restraint vs. boldness is set
+by the writing goals and avoid list, not by a fixed rule to leave sentences as-is.
 
 Writing goals for the selected profile:
 {goals}
