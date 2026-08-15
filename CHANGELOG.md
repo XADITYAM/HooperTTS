@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fixed the enhancer prompt flattening bulleted/list-style scripts into a
+  single run-on sentence with no punctuation between former items (found via
+  real generation output). The prompt now explicitly tells the model to keep
+  each list item as its own sentence/clause with clear ending punctuation.
 - Fixed a second protected-span validator bug found via a real script upload:
   the capitalized-phrase pattern used `\s+` between words, so it could match
   across a line break — e.g. the last word of one bullet-list item fused with

@@ -103,6 +103,22 @@ def test_backend_output_is_validated_and_creates_change_records() -> None:
     assert result.changes[0].sentence_index == 0
 
 
+def test_prompt_instructs_model_to_preserve_list_item_boundaries() -> None:
+    """Regression test: a bulleted script with no per-item punctuation was
+    getting flattened into one punctuation-less run-on sentence, since nothing
+    told the model to keep list items distinct. The prompt sent to the model
+    must explicitly say so."""
+    backend, _, tokenizer, _ = make_backend("Grand Theft Auto 6 arrives on August 27.")
+    source = "Grand Theft Auto 6 arrives on August 27.\n    Players explore Vice City."
+
+    ScriptEnhancer(backend=backend).enhance(source)
+
+    assert tokenizer.prompts, "expected the backend to call apply_chat_template"
+    sent_prompt = tokenizer.prompts[0][0]["content"]
+    assert "list items" in sent_prompt.lower()
+    assert "run-on sentence" in sent_prompt.lower()
+
+
 def test_empty_model_output_falls_back_to_original() -> None:
     backend, _, _, _ = make_backend("")
     source = "Grand Theft Auto 6 arrives on August 27."
@@ -206,6 +222,7 @@ def test_enhance_and_optimize_invokes_hugging_face_backend() -> None:
 if __name__ == "__main__":
     test_backend_is_lazy_and_releases_model_after_generation()
     test_backend_output_is_validated_and_creates_change_records()
+    test_prompt_instructs_model_to_preserve_list_item_boundaries()
     test_empty_model_output_falls_back_to_original()
     test_hugging_face_candidate_still_uses_protected_span_validation()
     test_model_load_failure_returns_useful_diagnostic()
