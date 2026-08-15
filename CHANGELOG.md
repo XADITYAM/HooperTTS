@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Switched the enhancement backend from greedy decoding (`do_sample=False`) to
+  sampling by default (`do_sample=True`, `temperature=0.8`, `top_p=0.9`),
+  configurable via `HOOPERTTS_ENHANCEMENT_DO_SAMPLE` /
+  `HOOPERTTS_ENHANCEMENT_TEMPERATURE` / `HOOPERTTS_ENHANCEMENT_TOP_P`. Root
+  cause of "the rewrite is basically the same as the input" even after the
+  friendslop_gaming policy was loosened: greedy decoding always picks the
+  single highest-probability token at each step, which stays close to a
+  near-paraphrase of a well-formed input regardless of what the prompt asks
+  for. Protected-span validation is unaffected by decoding strategy and
+  remains the hard safety net against invented/dropped facts.
 - Loosened the `friendslop_gaming` policy, which was structurally preventing
   any real creative rewrite: `max_changed_sentences_ratio` was 0.4, so a
   rewrite touching most of the script (e.g. adding a hook, reordering for

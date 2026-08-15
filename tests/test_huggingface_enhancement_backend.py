@@ -190,6 +190,60 @@ def test_environment_configuration_can_select_smaller_model() -> None:
     assert config.model_id == "Qwen/Qwen3-0.6B"
 
 
+def test_default_config_samples_instead_of_greedy_decoding() -> None:
+    """Regression test: greedy decoding (do_sample=False) always picks the
+    single highest-probability token, which produced near-identical output to
+    the input even when the prompt explicitly asked for a bolder rewrite.
+    Sampling must be on by default so the model can actually take that
+    liberty; protected-span validation remains the safety net regardless."""
+    config = HuggingFaceEnhancementConfig()
+    assert config.do_sample is True
+    assert 0.0 < config.temperature <= 1.5
+    assert 0.0 < config.top_p <= 1.0
+
+
+def test_generate_passes_sampling_kwargs_to_model_when_enabled() -> None:
+    backend, _, _, model = make_backend()
+
+    ScriptEnhancer(backend=backend).enhance(
+        "Grand Theft Auto 6 arrives on August 27.", profile="friendslop_gaming"
+    )
+
+    assert model.calls, "expected model.generate to be called"
+    call = model.calls[0]
+    assert call["do_sample"] is True
+    assert call["temperature"] == HuggingFaceEnhancementConfig().temperature
+    assert call["top_p"] == HuggingFaceEnhancementConfig().top_p
+
+
+def test_environment_can_disable_sampling_and_override_temperature_top_p() -> None:
+    import os
+
+    previous = {
+        key: os.environ.get(key)
+        for key in (
+            "HOOPERTTS_ENHANCEMENT_DO_SAMPLE",
+            "HOOPERTTS_ENHANCEMENT_TEMPERATURE",
+            "HOOPERTTS_ENHANCEMENT_TOP_P",
+        )
+    }
+    try:
+        os.environ["HOOPERTTS_ENHANCEMENT_DO_SAMPLE"] = "false"
+        os.environ["HOOPERTTS_ENHANCEMENT_TEMPERATURE"] = "0.4"
+        os.environ["HOOPERTTS_ENHANCEMENT_TOP_P"] = "0.95"
+        config = HuggingFaceEnhancementConfig.from_environment()
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    assert config.do_sample is False
+    assert config.temperature == 0.4
+    assert config.top_p == 0.95
+
+
 def test_optimize_only_does_not_load_hugging_face_backend() -> None:
     backend, calls, _, _ = make_backend()
     intelligence = ScriptIntelligence(enhancer=ScriptEnhancer(backend=backend))
@@ -223,6 +277,9 @@ if __name__ == "__main__":
     test_backend_is_lazy_and_releases_model_after_generation()
     test_backend_output_is_validated_and_creates_change_records()
     test_prompt_instructs_model_to_preserve_list_item_boundaries()
+    test_default_config_samples_instead_of_greedy_decoding()
+    test_generate_passes_sampling_kwargs_to_model_when_enabled()
+    test_environment_can_disable_sampling_and_override_temperature_top_p()
     test_empty_model_output_falls_back_to_original()
     test_hugging_face_candidate_still_uses_protected_span_validation()
     test_model_load_failure_returns_useful_diagnostic()

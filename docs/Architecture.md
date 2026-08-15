@@ -29,6 +29,15 @@ only Transformers and Accelerate.
 Set `HOOPERTTS_ENHANCEMENT_MODEL_ID=Qwen/Qwen3-0.6B` before running to use the
 smaller model. The experiment reads its input but never writes to it.
 
+Generation samples by default (`do_sample=True`, `temperature=0.8`, `top_p=0.9`)
+rather than using greedy decoding, since greedy decoding always picks the single
+highest-probability token and tends to stay close to a near-paraphrase of the
+input even when the writing goals ask for a bolder rewrite. Override with
+`HOOPERTTS_ENHANCEMENT_DO_SAMPLE=false` (back to deterministic greedy decoding),
+`HOOPERTTS_ENHANCEMENT_TEMPERATURE=<float>`, or `HOOPERTTS_ENHANCEMENT_TOP_P=<float>`.
+Protected-span validation is unaffected by decoding strategy and remains the hard
+safety net against invented or dropped facts either way.
+
 `qwen.runner.generate()` (used by both `app.py` and `hoopertts generate`) now
 wires this pipeline into the real generation path via `enhancement_mode`
 (`optimize_only` default / `enhance_only` / `enhance_and_optimize`) and

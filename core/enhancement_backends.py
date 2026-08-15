@@ -43,6 +43,16 @@ class HuggingFaceEnhancementConfig:
     max_new_tokens: int = 320
     device_map: str = "auto"
     minimum_free_vram_gb: float | None = None
+    # Greedy decoding (do_sample=False) always picks the single highest-probability
+    # token at each step, which tends to stay close to a near-paraphrase of the
+    # input even when the prompt explicitly asks for a bolder rewrite (e.g. a
+    # hook-driven restructure). Sampling is on by default so the model can
+    # actually take the creative liberty the writing goals ask for; the
+    # protected-span validator remains the hard safety net regardless of
+    # decoding strategy, so this doesn't weaken fact protection.
+    do_sample: bool = True
+    temperature: float = 0.8
+    top_p: float = 0.9
 
     @classmethod
     def from_environment(cls) -> "HuggingFaceEnhancementConfig":
@@ -53,11 +63,17 @@ class HuggingFaceEnhancementConfig:
         )
         device_map = os.getenv("HOOPERTTS_ENHANCEMENT_DEVICE_MAP", cls.device_map)
         minimum = os.getenv("HOOPERTTS_ENHANCEMENT_MIN_FREE_VRAM_GB")
+        do_sample = os.getenv("HOOPERTTS_ENHANCEMENT_DO_SAMPLE")
+        temperature = os.getenv("HOOPERTTS_ENHANCEMENT_TEMPERATURE")
+        top_p = os.getenv("HOOPERTTS_ENHANCEMENT_TOP_P")
         return cls(
             model_id=model_id,
             max_new_tokens=max_new_tokens,
             device_map=device_map,
             minimum_free_vram_gb=float(minimum) if minimum else None,
+            do_sample=do_sample.lower() not in ("0", "false", "no") if do_sample else cls.do_sample,
+            temperature=float(temperature) if temperature else cls.temperature,
+            top_p=float(top_p) if top_p else cls.top_p,
         )
 
 
@@ -243,12 +259,15 @@ Original script:
                 return_tensors="pt",
             )
         model_inputs = model_inputs.to(self._model.device)
-        generated_ids = self._model.generate(
-            **model_inputs,
-            max_new_tokens=self.config.max_new_tokens,
-            do_sample=False,
-            pad_token_id=getattr(self._tokenizer, "eos_token_id", None),
-        )
+        generation_kwargs: dict[str, Any] = {
+            "max_new_tokens": self.config.max_new_tokens,
+            "do_sample": self.config.do_sample,
+            "pad_token_id": getattr(self._tokenizer, "eos_token_id", None),
+        }
+        if self.config.do_sample:
+            generation_kwargs["temperature"] = self.config.temperature
+            generation_kwargs["top_p"] = self.config.top_p
+        generated_ids = self._model.generate(**model_inputs, **generation_kwargs)
         input_length = model_inputs["input_ids"].shape[-1]
         output_ids = generated_ids[0][input_length:]
         return self._clean_candidate(
