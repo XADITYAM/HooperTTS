@@ -265,6 +265,23 @@ class ScriptEnhancer:
                 ),
                 validation=validation,
             )
+        if not changes:
+            return EnhancementResult(
+                original_text=text,
+                enhanced_text=candidate.text,
+                analysis=analysis,
+                policy=policy,
+                changes=changes,
+                backend_name=candidate.backend_name,
+                backend_available=True,
+                diagnostic=(
+                    f"{candidate.diagnostic} Note: the accepted candidate is identical "
+                    "to the original script at the sentence level — the model did not "
+                    "actually apply a rewrite this time, even though validation passed "
+                    "(nothing changed, so there was nothing to reject)."
+                ),
+                validation=validation,
+            )
         return EnhancementResult(
             original_text=text,
             enhanced_text=candidate.text,

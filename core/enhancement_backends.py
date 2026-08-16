@@ -219,6 +219,10 @@ Return ONLY the revised script, with no commentary, labels, markdown, or explana
 Preserve every factual claim. Do not invent, remove, or alter game features, names,
 organizations, dates, numbers, prices, platforms, URLs, or quotations. Do not use
 creator-specific wording.
+Your response must be a genuine rewrite, not a copy of the original wording. Returning
+the original script unchanged, or changing only a word or two, is not acceptable unless
+the writing goals below explicitly call for minimal changes — reread the writing goals
+and actually apply them to the sentence structure and phrasing.
 If the source has line breaks separating list items or bullet points, keep each item
 as its own sentence or clause with clear ending punctuation. Never merge separate
 list items into a single run-on sentence with no punctuation between them.

@@ -119,6 +119,20 @@ def test_prompt_instructs_model_to_preserve_list_item_boundaries() -> None:
     assert "run-on sentence" in sent_prompt.lower()
 
 
+def test_prompt_instructs_model_not_to_echo_the_original() -> None:
+    """Regression test: a heavily constrained 'do not invent/remove/alter'
+    prompt can push a cautious model toward just copying the input verbatim
+    as the 'safest' way to violate none of the rules. The prompt must
+    explicitly forbid that."""
+    backend, _, tokenizer, _ = make_backend("Grand Theft Auto 6 arrives on August 27.")
+    source = "Grand Theft Auto 6 arrives on August 27."
+
+    ScriptEnhancer(backend=backend).enhance(source)
+
+    sent_prompt = tokenizer.prompts[0][0]["content"]
+    assert "not a copy of the original" in sent_prompt.lower()
+
+
 def test_empty_model_output_falls_back_to_original() -> None:
     backend, _, _, _ = make_backend("")
     source = "Grand Theft Auto 6 arrives on August 27."
@@ -277,6 +291,7 @@ if __name__ == "__main__":
     test_backend_is_lazy_and_releases_model_after_generation()
     test_backend_output_is_validated_and_creates_change_records()
     test_prompt_instructs_model_to_preserve_list_item_boundaries()
+    test_prompt_instructs_model_not_to_echo_the_original()
     test_default_config_samples_instead_of_greedy_decoding()
     test_generate_passes_sampling_kwargs_to_model_when_enabled()
     test_environment_can_disable_sampling_and_override_temperature_top_p()

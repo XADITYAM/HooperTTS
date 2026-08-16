@@ -94,6 +94,29 @@ def test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate() -
     assert result.enhanced_text == source
 
 
+def test_diagnostic_flags_when_accepted_candidate_is_identical_to_original() -> None:
+    """Regression test: a candidate that trivially passes validation by being
+    byte-identical to the input looked, from the diagnostic alone, exactly
+    like a real accepted rewrite ("Generated a candidate with..."). This
+    required manual text diffing to catch. The diagnostic must say so."""
+
+    class EchoBackend:
+        def enhance(self, text, *, analysis, policy):
+            return BackendEnhancement(
+                text=text,  # echoes the input back verbatim
+                backend_name="echo-test",
+                available=True,
+                diagnostic="Generated a candidate with echo-test in 1.00s on cpu.",
+            )
+
+    source = "Grand Theft Auto 6 arrives on August 27 for PS5 at $69.99."
+    result = ScriptEnhancer(backend=EchoBackend()).enhance(source, profile="friendslop_gaming")
+
+    assert result.validation.passed
+    assert result.changes == ()
+    assert "identical to the original" in result.diagnostic
+
+
 def test_validation_rejects_unsafe_candidate_and_returns_original() -> None:
     source = "Grand Theft Auto 6 arrives on August 27 for PS5."
     result = ScriptEnhancer(backend=UnsafeBackend()).enhance(
@@ -165,6 +188,7 @@ if __name__ == "__main__":
     test_protected_span_validator_does_not_flag_ordinary_sentence_openers()
     test_protected_span_validator_does_not_fuse_across_bullet_list_lines()
     test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate()
+    test_diagnostic_flags_when_accepted_candidate_is_identical_to_original()
     test_validation_rejects_unsafe_candidate_and_returns_original()
     test_enhance_only_never_invokes_qwen()
     test_optimize_only_matches_existing_optimizer()

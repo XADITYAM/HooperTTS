@@ -208,7 +208,7 @@ def test_runner_generate_enhance_mode_populates_enhancement_diagnostic() -> None
             from core.enhancement_backends import BackendEnhancement
 
             return BackendEnhancement(
-                text=text,
+                text=text.replace("Officially confirmed.", "Now confirmed officially."),
                 backend_name=self.name,
                 available=True,
                 diagnostic="Generated a candidate with the fake backend.",

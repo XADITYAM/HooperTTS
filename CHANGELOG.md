@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Found (via direct diffing) that the "enhanced" output being reported was,
+  word-for-word, the untouched original script — not a conservative
+  paraphrase. The enhancer prompt now explicitly forbids returning the
+  original wording unchanged, since a heavily constrained "do not
+  invent/remove/alter X, Y, Z..." prompt can push a cautious model toward
+  copying the input verbatim as the only way to guarantee it breaks none of
+  the listed rules. Also added a diagnostic check: if an accepted candidate
+  turns out to be identical to the source at the sentence level, the
+  diagnostic now says so explicitly instead of looking identical to a real
+  accepted rewrite ("Generated a candidate with...").
 - Switched the enhancement backend from greedy decoding (`do_sample=False`) to
   sampling by default (`do_sample=True`, `temperature=0.8`, `top_p=0.9`),
   configurable via `HOOPERTTS_ENHANCEMENT_DO_SAMPLE` /
