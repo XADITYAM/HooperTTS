@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Diffed a real run and found the model was applying the one *mechanical*
+  instruction it had a concrete rule for (add a period between former bullet
+  items) while leaving sentence order and phrasing 96.8% word-for-word
+  identical to the source — it wasn't ignoring instructions, it just had no
+  concrete example of what "restructure boldly" actually looks like as
+  opposed to a paraphrase-safety instruction to leave things alone. Added a
+  worked before/after example to the prompt (generic topic, so it doesn't
+  bias any profile's actual subject matter) demonstrating real sentence
+  reordering while every fact stays exact. Small instruction models
+  generally imitate a shown example far better than they execute an
+  abstract stylistic directive.
 - Found (via direct diffing) that the "enhanced" output being reported was,
   word-for-word, the untouched original script — not a conservative
   paraphrase. The enhancer prompt now explicitly forbids returning the

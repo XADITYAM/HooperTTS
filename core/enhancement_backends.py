@@ -223,6 +223,18 @@ Your response must be a genuine rewrite, not a copy of the original wording. Ret
 the original script unchanged, or changing only a word or two, is not acceptable unless
 the writing goals below explicitly call for minimal changes — reread the writing goals
 and actually apply them to the sentence structure and phrasing.
+
+Example of the kind of transformation expected (structure only — do not reuse this
+example's wording or topic in your actual answer):
+Original: "A local bakery opened in 1998. It sells 200 loaves a day. The owner learned
+baking from her grandmother."
+Rewritten: "Everything the owner knows about baking, she learned from her grandmother —
+and today it adds up to 200 loaves a day, rolling out of a bakery that's been open
+since 1998."
+Notice every fact (1998, 200 loaves, grandmother) survives exactly, but the sentence
+order, structure, and phrasing are substantially different. Apply this same kind of
+restructuring to the script below, in the direction the writing goals describe.
+
 If the source has line breaks separating list items or bullet points, keep each item
 as its own sentence or clause with clear ending punctuation. Never merge separate
 list items into a single run-on sentence with no punctuation between them.

@@ -133,6 +133,23 @@ def test_prompt_instructs_model_not_to_echo_the_original() -> None:
     assert "not a copy of the original" in sent_prompt.lower()
 
 
+def test_prompt_includes_a_worked_restructuring_example() -> None:
+    """Regression test: told only in the abstract to 'restructure boldly', the
+    model added the one mechanical fix it was given a concrete rule for
+    (list-item punctuation) but left sentence order/phrasing untouched
+    (measured at 96.8% word-for-word identical to the source on a real run).
+    A small model needs a concrete before/after example of the restructuring
+    itself, not just a description of it."""
+    backend, _, tokenizer, _ = make_backend("Grand Theft Auto 6 arrives on August 27.")
+    source = "Grand Theft Auto 6 arrives on August 27."
+
+    ScriptEnhancer(backend=backend).enhance(source)
+
+    sent_prompt = tokenizer.prompts[0][0]["content"]
+    assert "original:" in sent_prompt.lower()
+    assert "rewritten:" in sent_prompt.lower()
+
+
 def test_empty_model_output_falls_back_to_original() -> None:
     backend, _, _, _ = make_backend("")
     source = "Grand Theft Auto 6 arrives on August 27."
@@ -292,6 +309,7 @@ if __name__ == "__main__":
     test_backend_output_is_validated_and_creates_change_records()
     test_prompt_instructs_model_to_preserve_list_item_boundaries()
     test_prompt_instructs_model_not_to_echo_the_original()
+    test_prompt_includes_a_worked_restructuring_example()
     test_default_config_samples_instead_of_greedy_decoding()
     test_generate_passes_sampling_kwargs_to_model_when_enabled()
     test_environment_can_disable_sampling_and_override_temperature_top_p()
