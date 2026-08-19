@@ -229,7 +229,12 @@ class HuggingFaceEnhancementBackend:
         free_bytes, _ = torch.cuda.mem_get_info()
         required_gb = self.config.minimum_free_vram_gb
         if required_gb is None:
-            required_gb = 2.0 if "0.6B" in self.config.model_id else 4.5
+            if "0.6B" in self.config.model_id:
+                required_gb = 2.0
+            elif "Phi-3.5" in self.config.model_id:
+                required_gb = 6.0
+            else:
+                required_gb = 4.5
         if free_bytes < required_gb * 1024**3:
             raise RuntimeError(
                 f"Only {free_bytes / 1024**3:.1f} GiB of CUDA memory is free; "

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Added a third enhancement model tier, "Creative" (`microsoft/Phi-3.5-mini-instruct`),
+  selectable in the app's Enhancement Model dropdown and via `--enhance-model creative`
+  on the CLI. Added after real Colab testing: Qwen3-1.7B stayed 96.8%-99.6%
+  word-for-word identical to the input across multiple runs, even at
+  temperature 1.2 with top_p 0.97 — it applied mechanical instructions
+  (list-item punctuation) but not structural ones (hooks, reordering),
+  regardless of sampling settings. That ruled out decoding randomness as the
+  cause and pointed to a genuine instruction-following capability gap at
+  this model size. Phi-3.5-mini-instruct is specifically known for stronger
+  multi-constraint instruction-following at a similar parameter count. VRAM
+  requirement set to 6 GiB free (vs. 4.5 for Qwen3-1.7B); the existing
+  sequential load/release pattern still applies so this doesn't change
+  concurrent VRAM usage, only the size of whichever single model is loaded
+  at a time. Generation will take noticeably longer than the 45-85s range
+  seen with Qwen3-1.7B.
 - Added retry-with-backoff around the enhancement model's Hugging Face
   download (tokenizer + model), matching the pattern the notebook already
   uses for the Qwen3-TTS snapshot download. Root cause of a real failure:

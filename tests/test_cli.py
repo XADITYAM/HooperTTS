@@ -117,6 +117,57 @@ def test_cli_generate_accepts_command_profile() -> None:
         qwen_runner.generate = original_generate
 
 
+def test_cli_generate_accepts_creative_enhancement_model_flag() -> None:
+    original_generate = qwen_runner.generate
+    seen_tiers: list[str] = []
+
+    try:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            script_path = root / "script.txt"
+            output_path = root / "output.wav"
+            script_path.write_text("Imagine HooperTTS.", encoding="utf-8")
+
+            def fake_generate(
+                script_path,
+                reference_audio,
+                profile,
+                output_path,
+                enhancement_mode=None,
+                enhancement_model_tier=None,
+            ):
+                seen_tiers.append(enhancement_model_tier)
+                Path(output_path).write_text("wav", encoding="utf-8")
+                return GenerationResult(
+                    success=True,
+                    output_path=str(output_path),
+                    diagnostics="Wrote output.wav",
+                    prompt=None,
+                )
+
+            qwen_runner.generate = fake_generate
+
+            run_cli(
+                [
+                    "generate",
+                    "--script",
+                    str(script_path),
+                    "--profile",
+                    "friendslop_gaming",
+                    "--output",
+                    str(output_path),
+                    "--enhance",
+                    "enhance_and_optimize",
+                    "--enhance-model",
+                    "creative",
+                ]
+            )
+
+            assert seen_tiers == ["creative"]
+    finally:
+        qwen_runner.generate = original_generate
+
+
 def test_cli_validate() -> None:
     with TemporaryDirectory() as temp_dir:
         sample_dir = Path(temp_dir)

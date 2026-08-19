@@ -20,10 +20,17 @@ DEFAULT_QWEN_MODEL_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 # Script-enhancer model tiers offered in the CLI and Gradio UI. Quality is the
 # default: Qwen3-1.7B gives materially better pacing/emphasis output than the
 # 0.6B model for a modest VRAM cost. Fast exists for constrained Colab
-# sessions (e.g. when the free-tier T4 is already tight on memory).
+# sessions (e.g. when the free-tier T4 is already tight on memory). Creative
+# exists because real testing showed Qwen3-1.7B, even at temperature 1.2,
+# stayed ~97-99% word-for-word identical to the input on a heavily
+# fact-constrained script — it applied mechanical instructions (punctuation)
+# but not structural ones (hooks, reordering). Phi-3.5-mini-instruct is
+# specifically known for stronger multi-constraint instruction-following at
+# a similar size, which is the exact gap that was hit.
 ENHANCEMENT_MODEL_TIERS: dict[str, str] = {
     "quality": "Qwen/Qwen3-1.7B",
     "fast": "Qwen/Qwen3-0.6B",
+    "creative": "microsoft/Phi-3.5-mini-instruct",
 }
 DEFAULT_ENHANCEMENT_MODEL_TIER = "quality"
 

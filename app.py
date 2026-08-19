@@ -29,6 +29,7 @@ ENHANCEMENT_MODE_CHOICES: dict[str, EnhancementMode] = {
 ENHANCEMENT_MODEL_CHOICES: dict[str, str] = {
     "Quality — Qwen3-1.7B (recommended)": "quality",
     "Fast — Qwen3-0.6B (lower VRAM)": "fast",
+    "Creative — Phi-3.5-mini (bolder rewrites, ~6 GiB VRAM)": "creative",
 }
 DEFAULT_ENHANCEMENT_MODE_LABEL = "Off (optimize only)"
 DEFAULT_ENHANCEMENT_MODEL_LABEL = "Quality — Qwen3-1.7B (recommended)"
@@ -154,11 +155,14 @@ def build_interface() -> gr.Blocks:
             )
         gr.Markdown(
             "Script enhancement is optional and off by default. Turning it on "
-            "loads a small Qwen3 language model on the GPU just before "
+            "loads a small language model on the GPU just before "
             "generation, rewrites the script for pacing/clarity, validates "
             "that no facts changed, then releases the model before Qwen3-TTS "
             "loads. On Colab's free tier, prefer **Fast — Qwen3-0.6B** if "
-            "you're low on GPU memory."
+            "you're low on GPU memory. If Quality feels too conservative and "
+            "keeps returning near-identical text, try **Creative — "
+            "Phi-3.5-mini** — it's better at following bolder rewrite "
+            "instructions, at the cost of more VRAM and generation time."
         )
 
         generate_button = _component(

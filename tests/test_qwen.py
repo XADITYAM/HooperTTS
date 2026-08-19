@@ -270,6 +270,15 @@ def test_runner_generate_enhance_mode_populates_enhancement_diagnostic() -> None
         runner.save_wav = original_save_wav
 
 
+def test_enhancement_model_tiers_include_creative_option() -> None:
+    """Regression test: added after real Colab testing showed Qwen3-1.7B
+    stayed 97-99% identical to the input even at temperature 1.2, on a
+    fact-dense script. Creative must resolve to a distinct, stronger-at-
+    instruction-following model, not silently fall back to Quality."""
+    assert runner.ENHANCEMENT_MODEL_TIERS["creative"] == "microsoft/Phi-3.5-mini-instruct"
+    assert runner.ENHANCEMENT_MODEL_TIERS["creative"] != runner.ENHANCEMENT_MODEL_TIERS["quality"]
+
+
 if __name__ == "__main__":
     test_prompt_builder_uses_planner_output()
     test_friendslop_gaming_prompt_uses_casual_delivery()
@@ -279,3 +288,4 @@ if __name__ == "__main__":
     test_runner_generate_with_mocked_qwen()
     test_runner_generate_defaults_to_optimize_only_without_loading_enhancer()
     test_runner_generate_enhance_mode_populates_enhancement_diagnostic()
+    test_enhancement_model_tiers_include_creative_option()

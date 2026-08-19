@@ -83,11 +83,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     generate_parser.add_argument(
         "--enhance-model",
-        choices=["quality", "fast"],
+        choices=["quality", "fast", "creative"],
         default="quality",
         help=(
             "Enhancement model tier: quality=Qwen3-1.7B (default), "
-            "fast=Qwen3-0.6B for constrained GPUs."
+            "fast=Qwen3-0.6B for constrained GPUs, creative=Phi-3.5-mini for "
+            "bolder rewrites when Qwen3-1.7B stays too close to the input."
         ),
     )
     generate_parser.set_defaults(command=generate_command)
