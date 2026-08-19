@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Added retry-with-backoff around the enhancement model's Hugging Face
+  download (tokenizer + model), matching the pattern the notebook already
+  uses for the Qwen3-TTS snapshot download. Root cause of a real failure:
+  `AutoModelForCausalLM.from_pretrained` had zero retry logic, so a single
+  dropped connection mid-download (`IncompleteRead`) on Colab's free-tier
+  networking discarded the entire enhancement attempt immediately, even
+  though the exact same class of failure was already known to happen (it's
+  why the Qwen3-TTS download has retries). 4 attempts, 10s/20s/30s backoff.
 - Diffed a real run and found the model was applying the one *mechanical*
   instruction it had a concrete rule for (add a period between former bullet
   items) while leaving sentence order and phrasing 96.8% word-for-word

@@ -174,6 +174,8 @@ def test_hugging_face_candidate_still_uses_protected_span_validation() -> None:
 
 
 def test_model_load_failure_returns_useful_diagnostic() -> None:
+    import core.enhancement_backends as backend_module
+
     def failing_loader(model_id: str):
         raise OSError("offline")
 
@@ -183,12 +185,49 @@ def test_model_load_failure_returns_useful_diagnostic() -> None:
     )
     backend._check_resources = lambda: None
 
-    result = ScriptEnhancer(backend=backend).enhance("Grand Theft Auto 6 arrives.")
+    original_sleep = backend_module.time.sleep
+    backend_module.time.sleep = lambda seconds: None  # skip real retry backoff in tests
+    try:
+        result = ScriptEnhancer(backend=backend).enhance("Grand Theft Auto 6 arrives.")
+    finally:
+        backend_module.time.sleep = original_sleep
 
     assert not result.backend_available
     assert result.enhanced_text == "Grand Theft Auto 6 arrives."
     assert "Qwen/Qwen3-1.7B" in result.diagnostic
     assert "offline" in result.diagnostic
+
+
+def test_transient_load_failure_is_retried_and_recovers() -> None:
+    """Regression test: a real Colab failure surfaced as an IncompleteRead
+    mid-download, and the loader had no retry logic at all, unlike the
+    Qwen3-TTS snapshot download in the notebook. A transient failure on the
+    first attempt(s) must be retried rather than immediately giving up."""
+    import core.enhancement_backends as backend_module
+
+    attempts: list[int] = []
+
+    def flaky_then_ok(model_id: str):
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise ConnectionError("Connection broken: IncompleteRead(...)")
+        return FakeTokenizer("Grand Theft Auto 6 launches in style.")
+
+    backend = HuggingFaceEnhancementBackend(
+        tokenizer_loader=flaky_then_ok,
+        model_loader=lambda *args, **kwargs: FakeModel(),
+    )
+    backend._check_resources = lambda: None
+
+    original_sleep = backend_module.time.sleep
+    backend_module.time.sleep = lambda seconds: None
+    try:
+        result = ScriptEnhancer(backend=backend).enhance("Grand Theft Auto 6 arrives.")
+    finally:
+        backend_module.time.sleep = original_sleep
+
+    assert len(attempts) == 3
+    assert result.backend_available
 
 
 def test_model_identifier_is_configurable_without_code_changes() -> None:
@@ -316,6 +355,7 @@ if __name__ == "__main__":
     test_empty_model_output_falls_back_to_original()
     test_hugging_face_candidate_still_uses_protected_span_validation()
     test_model_load_failure_returns_useful_diagnostic()
+    test_transient_load_failure_is_retried_and_recovers()
     test_model_identifier_is_configurable_without_code_changes()
     test_environment_configuration_can_select_smaller_model()
     test_optimize_only_does_not_load_hugging_face_backend()

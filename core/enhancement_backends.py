@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import os
+import time
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Any, Callable, Protocol
@@ -177,8 +178,40 @@ class HuggingFaceEnhancementBackend:
             "device_map": self.config.device_map,
             "torch_dtype": "auto",
         }
-        self._tokenizer = self._tokenizer_loader(self.config.model_id)
-        self._model = self._model_loader(self.config.model_id, **load_kwargs)
+        self._tokenizer = self._retry_on_transient_error(
+            lambda: self._tokenizer_loader(self.config.model_id)
+        )
+        self._model = self._retry_on_transient_error(
+            lambda: self._model_loader(self.config.model_id, **load_kwargs)
+        )
+
+    def _retry_on_transient_error(
+        self,
+        load_fn: Callable[[], Any],
+        max_retries: int = 4,
+        backoff_seconds: float = 10.0,
+    ) -> Any:
+        """Retry a Hugging Face Hub download on transient connection failures
+        (e.g. a dropped connection mid-download, surfaced as IncompleteRead),
+        matching the retry-with-backoff pattern already used for the
+        Qwen3-TTS model download in the Colab notebook. Colab's free-tier
+        networking is known to drop connections mid-download; without this,
+        a single flaky moment silently discards the whole enhancement attempt
+        and falls back to the original script."""
+        last_error: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                return load_fn()
+            except Exception as exc:  # noqa: BLE001 - deliberately broad; this
+                # wraps a network download step, not business logic, and the
+                # failure modes (connection resets, incomplete reads, CDN
+                # hiccups) surface as many different exception types.
+                last_error = exc
+                if attempt == max_retries:
+                    break
+                time.sleep(backoff_seconds * attempt)
+        assert last_error is not None
+        raise last_error
 
     def _check_resources(self) -> None:
         """Fail early on insufficient CUDA memory instead of risking a TTS crash."""
