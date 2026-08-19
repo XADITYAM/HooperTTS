@@ -104,7 +104,14 @@ class ProtectedSpanValidator:
         "Android",
     )
     _URL_PATTERN = re.compile(r"https?://[^\s]+|www\.[^\s]+", re.IGNORECASE)
-    _QUOTATION_PATTERN = re.compile(r'"[^"\n]+"|“[^”\n]+”|\'[^\'\n]+\'')
+    # No word-boundary guard on a bare straight quote ' means two unrelated
+    # possessive/contraction apostrophes (e.g. "GTA 6's ... the game's") get
+    # greedily paired into one fake multi-sentence "quotation" spanning
+    # everything between them. (?<!\w)...(?!\w) requires the opening quote to
+    # NOT be stuck onto a preceding word and the closing quote to NOT be
+    # stuck onto a following word, which a real quotation mark satisfies but
+    # a possessive/contraction apostrophe never does.
+    _QUOTATION_PATTERN = re.compile(r'"[^"\n]+"|(?<!\w)\'[^\'\n]+\'(?!\w)')
     _PRICE_PATTERN = re.compile(r"(?:[$€£¥]\s?\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s?(?:USD|EUR|GBP|INR))\b", re.IGNORECASE)
     _DATE_PATTERN = re.compile(
         r"\b(?:\d{4}-\d{1,2}-\d{1,2}|"
@@ -128,8 +135,25 @@ class ProtectedSpanValidator:
         r"(?:Games|Studios|Interactive|Entertainment|Inc\.?|Ltd\.?)\b"
     )
 
+    @staticmethod
+    def _normalize_quotes(text: str) -> str:
+        """Canonicalize typographic ("smart") quotes and apostrophes to their
+        ASCII equivalents before span extraction. The source script may use
+        curly punctuation while a model's own output commonly defaults to
+        straight punctuation (or vice versa) even when the quoted content
+        itself is preserved exactly — without this, that typography
+        difference alone causes a false "missing"/"invented" mismatch on an
+        otherwise correctly preserved quotation or possessive."""
+        return (
+            text.replace("\u201c", '"')
+            .replace("\u201d", '"')
+            .replace("\u2018", "'")
+            .replace("\u2019", "'")
+        )
+
     def extract(self, text: str) -> tuple[ProtectedSpan, ...]:
         """Extract exact source spans that must remain present after enhancement."""
+        text = self._normalize_quotes(text)
         spans: list[ProtectedSpan] = []
         spans.extend(self._find("url", self._URL_PATTERN, text))
         spans.extend(self._find("quotation", self._QUOTATION_PATTERN, text))

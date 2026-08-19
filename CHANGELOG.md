@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Fixed the real blocker behind Phi-3.5-mini's first rejected candidate: the
+  bare single-quote alternative in `_QUOTATION_PATTERN` had no word-boundary
+  guard, so two unrelated possessive/contraction apostrophes (e.g. "GTA 6's
+  ... the game's") got greedily paired into one fake multi-sentence
+  "quotation" spanning everything between them — this alone produced most of
+  a long missing/invented diagnostic list. Also normalized curly ("smart")
+  vs. straight quote/apostrophe typography before span extraction, since the
+  source script uses curly quotes but model output commonly defaults to
+  straight ones even when a quotation's actual content is preserved exactly
+  — that typography difference alone was causing false rejections
+  independent of the pairing bug. Genuine dropped/altered quotes are still
+  correctly rejected either way.
 - Added a third enhancement model tier, "Creative" (`microsoft/Phi-3.5-mini-instruct`),
   selectable in the app's Enhancement Model dropdown and via `--enhance-model creative`
   on the CLI. Added after real Colab testing: Qwen3-1.7B stayed 96.8%-99.6%

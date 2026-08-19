@@ -72,6 +72,40 @@ def test_protected_span_validator_does_not_fuse_across_bullet_list_lines() -> No
     assert validator.validate(original, reformatted).passed
 
 
+def test_protected_span_validator_does_not_pair_unrelated_apostrophes() -> None:
+    """Regression test: found via a real Phi-3.5-mini generation. Possessive
+    and contraction apostrophes ("GTA 6's ... the game's ... isn't") were
+    being greedily paired by the bare-single-quote pattern into one fake
+    multi-sentence "quotation" spanning everything between two unrelated
+    apostrophes, which then could never match on either side."""
+    validator = ProtectedSpanValidator()
+    text = (
+        "GTA 6's innovative gameplay emerge from the insights of YouTuber "
+        "HipHopGamer, ahead of the Extended Look Netflix stream on August 27. "
+        "Unveiling a series of groundbreaking features, HipHopGamer notes the "
+        "game's technology isn't just for movies."
+    )
+    spans = [s for s in validator.extract(text) if s.kind == "quotation"]
+    assert spans == []
+
+
+def test_protected_span_validator_matches_quotations_across_quote_styles() -> None:
+    """Regression test: the source script uses curly ("smart") quotes, but a
+    model's own output commonly defaults to straight ASCII quotes even when
+    the quoted content itself is preserved exactly. That typography
+    difference alone must not cause a false rejection."""
+    validator = ProtectedSpanValidator()
+    original = "Gameplay supposedly feels \u201ccompletely different\u201d from previous games."
+    candidate = 'The developer said gameplay feels "completely different" this time around.'
+    assert validator.validate(original, candidate).passed
+
+    # A genuinely dropped/altered quote must still be rejected.
+    dropped = validator.validate(
+        original, "The developer said gameplay feels totally unique this time around."
+    )
+    assert not dropped.passed
+
+
 def test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate() -> None:
     """Regression test: a bare 'rejected by protected-span validation' message
     gave no way to tell what actually broke. The diagnostic must include the
@@ -187,6 +221,8 @@ if __name__ == "__main__":
     test_protected_span_validator_preserves_factual_details()
     test_protected_span_validator_does_not_flag_ordinary_sentence_openers()
     test_protected_span_validator_does_not_fuse_across_bullet_list_lines()
+    test_protected_span_validator_does_not_pair_unrelated_apostrophes()
+    test_protected_span_validator_matches_quotations_across_quote_styles()
     test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate()
     test_diagnostic_flags_when_accepted_candidate_is_identical_to_original()
     test_validation_rejects_unsafe_candidate_and_returns_original()
