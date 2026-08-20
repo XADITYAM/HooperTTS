@@ -106,6 +106,41 @@ def test_protected_span_validator_matches_quotations_across_quote_styles() -> No
     assert not dropped.passed
 
 
+
+def test_protected_span_validator_allows_natural_entity_rewording_and_date_abbreviations() -> None:
+    """LLM rewrites may expand dates and shorten entity references without
+    changing the underlying facts. Those changes must not be rejected as
+    invented/missing proper nouns."""
+    validator = ProtectedSpanValidator()
+    source = (
+        "Netflix is set to reveal Red Dead Redemption 2 starring Jason's "
+        "from Rockstar Games on Aug. 27."
+    )
+    candidate = (
+        "On August 27, Netflix reveals Red Dead Redemption 2, starring Jason "
+        "with Rockstar's new details."
+    )
+    result = validator.validate(source, candidate)
+    assert result.passed, result.diagnostics
+
+
+def test_protected_span_validator_rejects_dropped_numeric_title_fact() -> None:
+    validator = ProtectedSpanValidator()
+    source = "Red Dead Redemption 2 is finally getting a new trailer."
+    candidate = "Red Dead Redemption is finally getting a new trailer."
+    result = validator.validate(source, candidate)
+    assert not result.passed
+    assert any("number: 2" in diagnostic for diagnostic in result.diagnostics)
+
+
+def test_protected_span_validator_rejects_new_hard_fact() -> None:
+    validator = ProtectedSpanValidator()
+    source = "Grand Theft Auto 6 arrives on August 27."
+    candidate = "Grand Theft Auto 6 arrives on August 28."
+    result = validator.validate(source, candidate)
+    assert not result.passed
+    assert any("August 28" in diagnostic for diagnostic in result.diagnostics)
+
 def test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate() -> None:
     """Regression test: a bare 'rejected by protected-span validation' message
     gave no way to tell what actually broke. The diagnostic must include the
@@ -223,6 +258,9 @@ if __name__ == "__main__":
     test_protected_span_validator_does_not_fuse_across_bullet_list_lines()
     test_protected_span_validator_does_not_pair_unrelated_apostrophes()
     test_protected_span_validator_matches_quotations_across_quote_styles()
+    test_protected_span_validator_allows_natural_entity_rewording_and_date_abbreviations()
+    test_protected_span_validator_rejects_dropped_numeric_title_fact()
+    test_protected_span_validator_rejects_new_hard_fact()
     test_enhancement_diagnostic_explains_why_validation_rejected_a_candidate()
     test_diagnostic_flags_when_accepted_candidate_is_identical_to_original()
     test_validation_rejects_unsafe_candidate_and_returns_original()

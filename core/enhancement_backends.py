@@ -254,8 +254,12 @@ class HuggingFaceEnhancementBackend:
         return f"""Rewrite this script only if a targeted improvement is useful.
 
 Return ONLY the revised script, with no commentary, labels, markdown, or explanation.
-Preserve every factual claim. Do not invent, remove, or alter game features, names,
-organizations, dates, numbers, prices, platforms, URLs, or quotations. Do not use
+Preserve every factual claim. Do not invent, remove, or alter game features,
+dates, numbers, prices, platforms, URLs, or quotations. Preserve the identity of
+named people, companies, games, and organizations, but natural grammatical changes
+like possessives ("Jason's" -> "Jason" / "Rockstar Games" -> "Rockstar's") and
+expanded date abbreviations ("Aug. 27" -> "August 27") are allowed. Never drop a
+numeric part of a title: "Red Dead Redemption 2" must keep the "2". Do not use
 creator-specific wording.
 Your response must be a genuine rewrite, not a copy of the original wording. Returning
 the original script unchanged, or changing only a word or two, is not acceptable unless
