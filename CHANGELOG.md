@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added validator-aware enhancement retries for Phi-3.5-mini-instruct. When a generated rewrite is rejected because it drops protected facts (for example `GTA 6` or `2022`), the strict validator remains unchanged and the backend gets one or more configurable retry attempts with the exact validation failures fed back into a correction prompt. Retry decoding uses a lower default temperature (0.25) to favor factual recovery over extra creativity. Added an explicit immutable-fact ledger to the enhancement prompt, including dates, years, numbered titles, and URLs/prices where present. This is model-agnostic at the backend level but includes a Phi-specific instruction block for stronger literal constraint following.
+- Added environment controls `HOOPERTTS_ENHANCEMENT_VALIDATION_RETRIES`, `HOOPERTTS_ENHANCEMENT_RETRY_TEMPERATURE`, and `HOOPERTTS_ENHANCEMENT_RETRY_TOP_P`. Default is one validation retry.
+- Added regression coverage for Phi prompt facts, successful validator retry, repeated retry rejection, and environment configuration. Full test suite now passes with 73 tests.
 - Fixed a sentence-splitting bug found via a real script upload: the naive
   `[^.!?]+[.!?]?` sentence pattern in `NarrationPlanner` treated abbreviation
   periods (e.g. "Aug.") as sentence-ending, creating a fake sentence boundary

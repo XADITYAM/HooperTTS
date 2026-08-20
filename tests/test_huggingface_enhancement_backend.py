@@ -21,15 +21,20 @@ class FakeInputs(dict):
 class FakeTokenizer:
     eos_token_id = 0
 
-    def __init__(self, response: str) -> None:
+    def __init__(self, response: str | list[str]) -> None:
         self.response = response
         self.prompts: list[object] = []
+        self.decode_calls = 0
 
     def apply_chat_template(self, messages, **kwargs):
         self.prompts.append(messages)
         return FakeInputs()
 
     def decode(self, output_ids, skip_special_tokens: bool) -> str:
+        if isinstance(self.response, list):
+            value = self.response[min(self.decode_calls, len(self.response) - 1)]
+            self.decode_calls += 1
+            return value
         return self.response
 
 
@@ -360,3 +365,123 @@ if __name__ == "__main__":
     test_environment_configuration_can_select_smaller_model()
     test_optimize_only_does_not_load_hugging_face_backend()
     test_enhance_and_optimize_invokes_hugging_face_backend()
+
+
+def test_prompt_contains_explicit_high_risk_fact_checklist() -> None:
+    from core.enhancement_backends import HuggingFaceEnhancementBackend
+    from core.enhancement_policy import EnhancementPolicyManager
+    from core.script_analysis import ScriptAnalyzer
+
+    source = (
+        "Netflix will reveal GTA 6 on Aug. 27. A 2022 leak showed Grand Theft Auto 6. "
+        "Red Dead Redemption 2 remains a comparison point."
+    )
+    backend = HuggingFaceEnhancementBackend()
+    prompt = backend._build_prompt(
+        source,
+        ScriptAnalyzer().analyze(source),
+        EnhancementPolicyManager().load("default"),
+    )
+    assert "GTA 6" in prompt
+    assert "Aug. 27" in prompt
+    assert "2022" in prompt
+    assert "Grand Theft Auto 6" in prompt
+    assert "Red Dead Redemption 2" in prompt
+
+
+
+
+def test_phi_prompt_uses_literal_fact_ledger() -> None:
+    tokenizer = FakeTokenizer("Grand Theft Auto 6 arrives on August 27.")
+    model = FakeModel()
+    backend = HuggingFaceEnhancementBackend(
+        config=HuggingFaceEnhancementConfig(
+            model_id="microsoft/Phi-3.5-mini-instruct"
+        ),
+        tokenizer_loader=lambda model_id: tokenizer,
+        model_loader=lambda model_id, **kwargs: model,
+    )
+    backend._check_resources = lambda: None
+
+    source = (
+        "Netflix is set to reveal an extended look at Grand Theft Auto 6 on Aug. 27. A GTA 6 leak "
+        "is reminiscent of a massive leak of the game from 2022. "
+        "Jason appears in the footage, alongside Red Dead Redemption 2 camp funds."
+    )
+    ScriptEnhancer(backend=backend).enhance(source, profile="friendslop_gaming")
+
+    prompt = tokenizer.prompts[0][0]["content"]
+    lowered = prompt.lower()
+    assert "phi-3.5-mini" in lowered
+    assert "immutable facts" in lowered
+    assert "2022" in prompt
+    assert "gta 6" in lowered
+    assert "red dead redemption 2" in lowered
+
+
+def test_validation_failure_gets_one_explicit_retry() -> None:
+    tokenizer = FakeTokenizer([
+        "A new game arrives next year.",
+        "Grand Theft Auto 6 arrives on August 27, after a leak from 2022."
+    ])
+    model = FakeModel()
+    backend = HuggingFaceEnhancementBackend(
+        config=HuggingFaceEnhancementConfig(
+            model_id="microsoft/Phi-3.5-mini-instruct",
+            validation_retry_count=1,
+            retry_temperature=0.1,
+        ),
+        tokenizer_loader=lambda model_id: tokenizer,
+        model_loader=lambda model_id, **kwargs: model,
+    )
+    backend._check_resources = lambda: None
+
+    source = "Grand Theft Auto 6 arrives on August 27 after a leak from 2022."
+    result = ScriptEnhancer(backend=backend).enhance(source)
+
+    assert result.validation.passed
+    assert result.enhanced_text != source
+    assert len(tokenizer.prompts) == 2
+    retry_prompt = tokenizer.prompts[1][0]["content"]
+    assert "validation retry" in retry_prompt.lower()
+    assert "missing protected" in retry_prompt.lower()
+
+
+def test_validation_retry_still_rejects_when_phi_drops_facts_twice() -> None:
+    tokenizer = FakeTokenizer([
+        "A new game arrives next year.",
+        "The new game arrives next year."
+    ])
+    model = FakeModel()
+    backend = HuggingFaceEnhancementBackend(
+        config=HuggingFaceEnhancementConfig(
+            model_id="microsoft/Phi-3.5-mini-instruct",
+            validation_retry_count=1,
+        ),
+        tokenizer_loader=lambda model_id: tokenizer,
+        model_loader=lambda model_id, **kwargs: model,
+    )
+    backend._check_resources = lambda: None
+
+    source = "Grand Theft Auto 6 arrives on August 27 after a leak from 2022."
+    result = ScriptEnhancer(backend=backend).enhance(source)
+
+    assert result.enhanced_text == source
+    assert not result.validation.passed
+    assert "after a validator-aware retry" in result.diagnostic
+
+
+def test_environment_can_configure_validation_retry() -> None:
+    import os
+
+    previous = os.environ.get("HOOPERTTS_ENHANCEMENT_VALIDATION_RETRIES")
+    try:
+        os.environ["HOOPERTTS_ENHANCEMENT_VALIDATION_RETRIES"] = "2"
+        config = HuggingFaceEnhancementConfig.from_environment()
+    finally:
+        if previous is None:
+            os.environ.pop("HOOPERTTS_ENHANCEMENT_VALIDATION_RETRIES", None)
+        else:
+            os.environ["HOOPERTTS_ENHANCEMENT_VALIDATION_RETRIES"] = previous
+
+    assert config.validation_retry_count == 2

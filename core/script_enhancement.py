@@ -387,6 +387,33 @@ class ScriptEnhancer:
         policy = self.policy_manager.load(profile)
         candidate = self.backend.enhance(text, analysis=analysis, policy=policy)
         validation = self.validator.validate(text, candidate.text)
+
+        # Optional validator-aware retries for backends that support them. Keep the
+        # validator strict: retries exist to give a small model another explicit
+        # chance to restore facts it accidentally dropped, not to weaken acceptance.
+        retry_fn = getattr(self.backend, "enhance_with_feedback", None)
+        retry_attempts = 0
+        max_retries = max(0, int(getattr(getattr(self.backend, "config", None), "validation_retry_count", 0)))
+        while (
+            candidate.available
+            and not validation.passed
+            and callable(retry_fn)
+            and retry_attempts < max_retries
+        ):
+            retry_attempts += 1
+            retry_candidate = retry_fn(
+                text,
+                analysis=analysis,
+                policy=policy,
+                diagnostics=validation.diagnostics,
+                previous_candidate=candidate.text,
+            )
+            if not retry_candidate.available:
+                candidate = retry_candidate
+                break
+            candidate = retry_candidate
+            validation = self.validator.validate(text, candidate.text)
+
         if not candidate.available:
             return EnhancementResult(
                 original_text=text,
@@ -409,7 +436,12 @@ class ScriptEnhancer:
                 backend_name=candidate.backend_name,
                 backend_available=True,
                 diagnostic=(
-                    "Enhancement was rejected by protected-span validation: "
+                    "Enhancement was rejected by protected-span validation"
+                    + (" after a validator-aware retry"
+                       if retry_attempts == 1 else
+                       f" after {retry_attempts} validator-aware retries"
+                       if retry_attempts > 1 else "")
+                    + ": "
                     + "; ".join(validation.diagnostics)
                 ),
                 validation=validation,

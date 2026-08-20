@@ -82,6 +82,13 @@ class SemanticChunker:
 
     _SPACE_PATTERN = re.compile(r"[ \t]+")
     _WORD_PATTERN = re.compile(r"\b[\w'-]+\b")
+    BAD_ENDINGS: tuple[str, ...] = (
+        "and", "but", "or", "because", "so", "then", "while", "although",
+        "yet", "that", "which", "who", "whom", "whose", "where", "when",
+        "after", "around", "at", "before", "between", "by", "for", "from",
+        "in", "inside", "into", "of", "on", "over", "through", "to",
+        "under", "with", "without", "a", "an", "the",
+    )
 
     def __init__(
         self, protected_phrases: Sequence[str] | None = None, chunk_target: int = 7
@@ -163,10 +170,23 @@ class SemanticChunker:
 
         scored_candidates = [candidate for candidate in candidates if candidate[0] > 0]
         if scored_candidates:
-            scored_candidates.sort(reverse=True)
+            scored_candidates.sort(
+                key=lambda item: (item[0], -abs(item[1] - self.chunk_target)),
+                reverse=True,
+            )
             return scored_candidates[0][1]
         if candidates:
-            return candidates[-1][1]
+            safe = [
+                index
+                for _, index in candidates
+                if self._clean_token(tokens[index - 1]) not in self.BAD_ENDINGS
+            ]
+            if safe:
+                return min(safe, key=lambda index: abs(index - self.chunk_target))
+            return min(
+                (index for _, index in candidates),
+                key=lambda index: abs(index - self.chunk_target),
+            )
         return min(len(tokens), self.chunk_target)
 
     def _boundary_score(self, current_token: str, next_token: str) -> int:
@@ -176,12 +196,18 @@ class SemanticChunker:
             return 5
         if current in self.TRANSITIONS:
             return 4
-        if current in self.CONJUNCTIONS:
+        if next_clean in self.TRANSITIONS:
+            return 4
+        if next_clean in self.CONJUNCTIONS:
             return 3
-        if current in self.RELATIVE_WORDS or next_clean in self.RELATIVE_WORDS:
+        if next_clean in self.RELATIVE_WORDS:
             return 2
-        if current in self.PREPOSITIONS:
-            return 1
+        # Do not reward a break after a preposition/conjunction. That is how
+        # fragments such as "a closer look at" or "some of" were produced.
+        if current in self.PREPOSITIONS or current in self.CONJUNCTIONS:
+            return -5
+        if current in self.RELATIVE_WORDS or current in {"a", "an", "the"}:
+            return -3
         return 0
 
     def _count_tokens(

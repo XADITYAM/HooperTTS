@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import os
+import re
 import time
 from dataclasses import dataclass
 from time import perf_counter
@@ -54,6 +55,9 @@ class HuggingFaceEnhancementConfig:
     do_sample: bool = True
     temperature: float = 0.8
     top_p: float = 0.9
+    validation_retry_count: int = 1
+    retry_temperature: float = 0.25
+    retry_top_p: float = 0.9
 
     @classmethod
     def from_environment(cls) -> "HuggingFaceEnhancementConfig":
@@ -67,6 +71,9 @@ class HuggingFaceEnhancementConfig:
         do_sample = os.getenv("HOOPERTTS_ENHANCEMENT_DO_SAMPLE")
         temperature = os.getenv("HOOPERTTS_ENHANCEMENT_TEMPERATURE")
         top_p = os.getenv("HOOPERTTS_ENHANCEMENT_TOP_P")
+        validation_retry_count = os.getenv("HOOPERTTS_ENHANCEMENT_VALIDATION_RETRIES")
+        retry_temperature = os.getenv("HOOPERTTS_ENHANCEMENT_RETRY_TEMPERATURE")
+        retry_top_p = os.getenv("HOOPERTTS_ENHANCEMENT_RETRY_TOP_P")
         return cls(
             model_id=model_id,
             max_new_tokens=max_new_tokens,
@@ -75,11 +82,20 @@ class HuggingFaceEnhancementConfig:
             do_sample=do_sample.lower() not in ("0", "false", "no") if do_sample else cls.do_sample,
             temperature=float(temperature) if temperature else cls.temperature,
             top_p=float(top_p) if top_p else cls.top_p,
+            validation_retry_count=(
+                max(0, int(validation_retry_count))
+                if validation_retry_count
+                else cls.validation_retry_count
+            ),
+            retry_temperature=(
+                float(retry_temperature) if retry_temperature else cls.retry_temperature
+            ),
+            retry_top_p=float(retry_top_p) if retry_top_p else cls.retry_top_p,
         )
 
 
 class HuggingFaceEnhancementBackend:
-    """Lazy, single-use Qwen3 text-generation backend for script enhancement."""
+    """Lazy, single-use Transformers text-generation backend for script enhancement."""
 
     name = "huggingface"
 
@@ -110,28 +126,79 @@ class HuggingFaceEnhancementBackend:
         policy: EnhancementPolicy,
     ) -> BackendEnhancement:
         """Generate one candidate, then immediately release model resources."""
+        return self._generate_backend_result(
+            text,
+            analysis=analysis,
+            policy=policy,
+            feedback=None,
+            retry=False,
+        )
+
+    def enhance_with_feedback(
+        self,
+        text: str,
+        *,
+        analysis: ScriptAnalysis,
+        policy: EnhancementPolicy,
+        diagnostics: tuple[str, ...],
+        previous_candidate: str,
+    ) -> BackendEnhancement:
+        """Retry generation with explicit validator feedback.
+
+        This is intentionally an optional backend capability. ScriptEnhancer checks
+        for it only after a protected-span validation failure, so other backend
+        implementations do not need to know about retries.
+        """
+        feedback = self._build_retry_feedback(diagnostics, previous_candidate)
+        return self._generate_backend_result(
+            text,
+            analysis=analysis,
+            policy=policy,
+            feedback=feedback,
+            retry=True,
+        )
+
+    def _generate_backend_result(
+        self,
+        text: str,
+        *,
+        analysis: ScriptAnalysis,
+        policy: EnhancementPolicy,
+        feedback: str | None,
+        retry: bool,
+    ) -> BackendEnhancement:
         started_at = perf_counter()
         try:
             self._load()
-            prompt = self._build_prompt(text, analysis, policy)
-            candidate = self._generate(prompt)
+            prompt = self._build_prompt(
+                text, analysis, policy, feedback=feedback, retry=retry
+            )
+            candidate = self._generate(
+                prompt,
+                temperature=self.config.retry_temperature if retry else self.config.temperature,
+                top_p=self.config.retry_top_p if retry else self.config.top_p,
+            )
             if not candidate:
                 return BackendEnhancement(
                     text=text,
                     backend_name=self.name,
                     available=True,
-                    diagnostic="The enhancement model returned no usable script; the original was preserved.",
+                    diagnostic=(
+                        "The enhancement model returned no usable script; "
+                        "the original was preserved."
+                    ),
                 )
             elapsed = perf_counter() - started_at
             self.last_latency_seconds = elapsed
             self.last_device = self._device_label()
+            attempt_label = "validation retry" if retry else "initial generation"
             return BackendEnhancement(
                 text=candidate,
                 backend_name=self.name,
                 available=True,
                 diagnostic=(
-                    f"Generated a candidate with {self.config.model_id} in {elapsed:.2f}s "
-                    f"on {self._device_label()}."
+                    f"Generated a candidate with {self.config.model_id} ({attempt_label}) "
+                    f"in {elapsed:.2f}s on {self._device_label()}."
                 ),
             )
         except Exception as exc:
@@ -244,60 +311,143 @@ class HuggingFaceEnhancementBackend:
             )
 
     def _build_prompt(
-        self, text: str, analysis: ScriptAnalysis, policy: EnhancementPolicy
+        self,
+        text: str,
+        analysis: ScriptAnalysis,
+        policy: EnhancementPolicy,
+        *,
+        feedback: str | None = None,
+        retry: bool = False,
     ) -> str:
         issues = "\n".join(
             f"- {issue.category}: {issue.recommendation}" for issue in analysis.issues
         ) or "- No mandatory changes. Leave strong sentences unchanged."
         goals = "\n".join(f"- {goal}" for goal in policy.writing_goals)
         avoid = "\n".join(f"- {item}" for item in policy.avoid)
-        return f"""Rewrite this script only if a targeted improvement is useful.
+        protected_facts = self._extract_prompt_facts(text)
+        model_note = self._model_specific_instruction()
+        retry_note = ""
+        if retry and feedback:
+            retry_note = f"""
 
-Return ONLY the revised script, with no commentary, labels, markdown, or explanation.
-Preserve every factual claim. Do not invent, remove, or alter game features,
-dates, numbers, prices, platforms, URLs, or quotations. Preserve the identity of
-named people, companies, games, and organizations, but natural grammatical changes
-like possessives ("Jason's" -> "Jason" / "Rockstar Games" -> "Rockstar's") and
-expanded date abbreviations ("Aug. 27" -> "August 27") are allowed. Never drop a
-numeric part of a title: "Red Dead Redemption 2" must keep the "2". Do not use
-creator-specific wording.
-Your response must be a genuine rewrite, not a copy of the original wording. Returning
-the original script unchanged, or changing only a word or two, is not acceptable unless
-the writing goals below explicitly call for minimal changes — reread the writing goals
-and actually apply them to the sentence structure and phrasing.
+VALIDATION RETRY — the previous candidate was rejected.
+Fix every problem below while rewriting from the ORIGINAL SOURCE.
+Do not mention the validation process in your output.
+{feedback}
+"""
+        return f"""{model_note}
 
-Example of the kind of transformation expected (structure only — do not reuse this
-example's wording or topic in your actual answer):
-Original: "A local bakery opened in 1998. It sells 200 loaves a day. The owner learned
-baking from her grandmother."
-Rewritten: "Everything the owner knows about baking, she learned from her grandmother —
-and today it adds up to 200 loaves a day, rolling out of a bakery that's been open
-since 1998."
-Notice every fact (1998, 200 loaves, grandmother) survives exactly, but the sentence
-order, structure, and phrasing are substantially different. Apply this same kind of
-restructuring to the script below, in the direction the writing goals describe.
+Rewrite this script for a natural spoken-video delivery only when a targeted improvement is useful.
 
-If the source has line breaks separating list items or bullet points, keep each item
-as its own sentence or clause with clear ending punctuation. Never merge separate
-list items into a single run-on sentence with no punctuation between them.
-Follow the writing goals below even if it means substantially restructuring the
-script (e.g. reordering for a stronger opening hook) — restraint vs. boldness is set
-by the writing goals and avoid list, not by a fixed rule to leave sentences as-is.
+OUTPUT CONTRACT
+- Return ONLY the final revised script.
+- No commentary, labels, markdown, notes, or explanation.
+- Do not summarize the source. Rewrite the source. The result is not a copy of the original.
+- Keep every factual claim and every concrete identifier.
 
-Writing goals for the selected profile:
+FACT PRESERVATION CONTRACT
+The checklist below is an immutable factual ledger. Every item must appear in the final output,
+with the same factual meaning. Copy the exact wording where practical. You may change surrounding
+grammar, punctuation, sentence position, or possessives, but you may NOT omit, generalize away,
+replace with a vague phrase, or alter any checklist item.
+- Numbers and years must survive.
+- Dates may expand abbreviations (for example, Aug. 27 -> August 27) but the date itself must not change.
+- Numbered titles must retain their numbers (for example, Red Dead Redemption 2 keeps the 2).
+- Named people, companies, games, and organizations must remain identifiable.
+- Do not invent new facts, entities, products, features, dates, prices, or platforms.
+
+IMMUTABLE FACTS
+{protected_facts}
+{retry_note}
+
+REWRITE GOALS
 {goals}
 
-Avoid:
+AVOID
 {avoid}
 
-Deterministic analysis observations:
+DETERMINISTIC ANALYSIS
 {issues}
 
-Original script:
+STRUCTURE RULES
+- Preserve the source's paragraph/list-item boundaries unless combining them is clearly necessary for flow. Keep list items separate.
+- Every list item or paragraph beat must remain clearly separated by punctuation; never flatten list items into a run-on sentence.
+- Do not create sentence fragments by breaking immediately before/after words such as of, to, at, for, with, the, a, an, that, which, who, and, or, but.
+- Prefer natural spoken clauses over arbitrary word-count chunks.
+
+REWRITE EXAMPLE (structure only; do not reuse its wording):
+Original: "A bakery opened in 1998. It sells 200 loaves a day."
+Rewritten: "That bakery has been open since 1998 — and today, it turns out 200 loaves every day."
+The numbers and meaning remain intact while the sentence structure changes.
+
+ORIGINAL SOURCE
 {text}
+
+FINAL SELF-CHECK BEFORE OUTPUT
+1. Every item in IMMUTABLE FACTS appears in the final script.
+2. No number, date, title identifier, price, URL, or platform was dropped or changed.
+3. The result is a genuine rewrite, not a summary.
+4. The result contains no explanation or labels.
 """
 
-    def _generate(self, prompt: str) -> str:
+    def _model_specific_instruction(self) -> str:
+        model_id = self.config.model_id.casefold()
+        if "phi-3.5" in model_id or "phi3.5" in model_id:
+            return (
+                "You are Phi-3.5-mini acting as a careful script editor. "
+                "Follow explicit constraints literally. When a source fact appears in the immutable "
+                "ledger, treat it as text that must be copied into the final rewrite rather than as "
+                "information that may be paraphrased away. Preserve completeness before creativity."
+            )
+        return (
+            "You are a careful script editor. Follow explicit constraints literally and preserve "
+            "all immutable facts before applying stylistic improvements."
+        )
+
+    @staticmethod
+    def _build_retry_feedback(
+        diagnostics: tuple[str, ...], previous_candidate: str
+    ) -> str:
+        problems = "\n".join(f"- {item}" for item in diagnostics)
+        return (
+            "Validator failures from the previous attempt:\n"
+            f"{problems}\n\n"
+            "Previous attempt (use only to identify what went wrong; do not copy it blindly):\n"
+            f"{previous_candidate}\n"
+        )
+
+    @staticmethod
+    def _extract_prompt_facts(text: str) -> str:
+        """Create a compact checklist of high-risk factual spans for small models."""
+        patterns = (
+            re.compile(r"https?://[^\s]+|www\.[^\s]+", re.IGNORECASE),
+            re.compile(r"(?:[$€£¥]\s?\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s?(?:USD|EUR|GBP|INR))\b", re.IGNORECASE),
+            re.compile(
+                r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|"
+                r"Jan\.?|Feb\.?|Mar\.?|Apr\.?|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)"
+                r"\s+\d{1,2}(?:,\s*\d{4})?\b", re.IGNORECASE
+            ),
+            re.compile(r"\b(?:19|20)\d{2}\b"),
+            re.compile(r"\b(?:Grand Theft Auto 6|GTA 6|Red Dead Redemption 2)\b", re.IGNORECASE),
+        )
+        found: list[str] = []
+        seen: set[str] = set()
+        for pattern in patterns:
+            for match in pattern.finditer(text):
+                value = match.group(0).strip(".,;: ")
+                key = value.casefold()
+                if value and key not in seen:
+                    seen.add(key)
+                    found.append(value)
+        return "\n".join(f"- {value}" for value in found) or "- No high-risk factual spans detected."
+
+    def _generate(
+        self,
+        prompt: str,
+        *,
+        temperature: float | None = None,
+        top_p: float | None = None,
+    ) -> str:
         messages = [{"role": "user", "content": prompt}]
         try:
             model_inputs = self._tokenizer.apply_chat_template(
@@ -323,8 +473,10 @@ Original script:
             "pad_token_id": getattr(self._tokenizer, "eos_token_id", None),
         }
         if self.config.do_sample:
-            generation_kwargs["temperature"] = self.config.temperature
-            generation_kwargs["top_p"] = self.config.top_p
+            generation_kwargs["temperature"] = (
+                self.config.temperature if temperature is None else temperature
+            )
+            generation_kwargs["top_p"] = self.config.top_p if top_p is None else top_p
         generated_ids = self._model.generate(**model_inputs, **generation_kwargs)
         input_length = model_inputs["input_ids"].shape[-1]
         output_ids = generated_ids[0][input_length:]
