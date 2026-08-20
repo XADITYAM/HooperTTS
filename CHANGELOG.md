@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Fixed a sentence-splitting bug found via a real script upload: the naive
+  `[^.!?]+[.!?]?` sentence pattern in `NarrationPlanner` treated abbreviation
+  periods (e.g. "Aug.") as sentence-ending, creating a fake sentence boundary
+  right in the middle of "...on Aug. 27, but fans...". That fake boundary
+  then triggered two separate pause heuristics on a boundary that was never
+  really there (pre-sentence pause + contrast-word pause before "but"),
+  producing stray isolated "..." pause-marker lines in the optimized output.
+  Added an abbreviation list (months, honorifics) that's protected before
+  sentence splitting and restored after. This is the accepted trade-off of
+  any lightweight tokenizer: "Aug." immediately followed by a genuine new
+  sentence now gets merged too, rather than risking the more visible failure
+  mode of a wrongly split, visibly fragmented sentence. Added
+  `tests/test_planner.py` — the planner previously had zero direct test
+  coverage, which is part of why this went unnoticed.
 - Fixed the real blocker behind Phi-3.5-mini's first rejected candidate: the
   bare single-quote alternative in `_QUOTATION_PATTERN` had no word-boundary
   guard, so two unrelated possessive/contraction apostrophes (e.g. "GTA 6's

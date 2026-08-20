@@ -86,6 +86,22 @@ class NarrationPlanner:
     _SENTENCE_PATTERN = re.compile(r"[^.!?]+[.!?]?")
     _NUMBER_PATTERN = re.compile(r"\b\d+(?:\.\d+)?%?\b")
     _SPACE_PATTERN = re.compile(r"[ \t]+")
+    # Common abbreviations whose period is not a sentence terminator. Without
+    # this, "...on Aug. 27, but fans..." gets split into a fake sentence
+    # boundary right after "Aug.", which then makes the rest ("27, but
+    # fans...") look like it starts a new sentence — triggering both the
+    # pre-sentence pause heuristic and the contrast-word ("but") pause
+    # heuristic on a boundary that was never really there, producing stray
+    # "..." pause markers in the output.
+    _ABBREVIATIONS: tuple[str, ...] = (
+        "Jan.", "Feb.", "Mar.", "Apr.", "Jun.", "Jul.", "Aug.", "Sep.",
+        "Sept.", "Oct.", "Nov.", "Dec.",
+        "Mr.", "Mrs.", "Ms.", "Dr.", "Jr.", "Sr.", "St.", "vs.", "etc.",
+    )
+    # ONE DOT LEADER (U+2024): visually similar to a period but distinct from
+    # it, so it survives the sentence-boundary regex untouched and can be
+    # restored to a literal "." afterward.
+    _ABBREVIATION_PLACEHOLDER = "\u2024"
 
     def __init__(self, profile: NarrationProfile | None = None) -> None:
         """Create a planner for a narration profile."""
@@ -100,11 +116,23 @@ class NarrationPlanner:
             for index, sentence in enumerate(sentences)
         ]
 
+    def _protect_abbreviations(self, text: str) -> str:
+        for abbreviation in self._ABBREVIATIONS:
+            protected = abbreviation[:-1] + self._ABBREVIATION_PLACEHOLDER
+            text = re.sub(
+                rf"\b{re.escape(abbreviation)}", protected, text, flags=re.IGNORECASE
+            )
+        return text
+
+    def _restore_abbreviations(self, text: str) -> str:
+        return text.replace(self._ABBREVIATION_PLACEHOLDER, ".")
+
     def _split_sentences(self, text: str) -> list[str]:
         normalized = text.replace("\r\n", "\n").replace("\r", "\n")
         normalized = self._SPACE_PATTERN.sub(" ", normalized.strip())
+        normalized = self._protect_abbreviations(normalized)
         return [
-            match.group(0).strip()
+            self._restore_abbreviations(match.group(0).strip())
             for match in self._SENTENCE_PATTERN.finditer(normalized)
             if match.group(0).strip()
         ]
